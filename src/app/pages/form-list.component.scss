@@ -1,0 +1,24 @@
+.form-list {
+    padding: 20px;
+    
+    h2 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+    
+    .form-link {
+      color: #4361ee;
+      cursor: pointer;
+      text-decoration: none;
+      transition: color 0.3s;
+      
+      &:hover {
+        color: #3f37c9;
+        text-decoration: underline;
+      }
+    }
+    
+    .p-button {
+      margin-right: 5px;
+    }
+  }

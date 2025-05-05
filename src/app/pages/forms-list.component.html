@@ -1,0 +1,33 @@
+<div class="form-list">
+  <h2>Liste des Formulaires</h2>
+  
+  <p-table [value]="forms" *ngIf="forms && forms.length > 0; else noForms" [paginator]="true" [rows]="5" responsiveLayout="scroll">
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Nom du formulaire</th>
+        <th>Actions</th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-form let-i="rowIndex">
+      <tr>
+        <td>
+          <a [routerLink]="['/forms', form.id]">{{ form.name }}</a>
+        </td>
+        <td>
+          <button pButton pRipple icon="pi pi-pencil" 
+                  class="p-button-rounded p-button-text" 
+                  (click)="editForm(form.id)" 
+                  tooltip="Modifier"></button>
+          <button pButton pRipple icon="pi pi-trash" 
+                  class="p-button-rounded p-button-danger p-button-text" 
+                  (click)="deleteForm(form.id)" 
+                  tooltip="Supprimer"></button>
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+
+  <ng-template #noForms>
+    <p-message severity="info" text="Aucun formulaire trouvé."></p-message>
+  </ng-template>
+</div>

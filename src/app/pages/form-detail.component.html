@@ -1,0 +1,368 @@
+<div class="grid">
+  <div class="col-12">
+    <div class="card">
+      <p-toast></p-toast>
+
+      <p-toolbar class="mb-4">
+        <ng-template pTemplate="left">
+          <div class="my-2">
+            <button
+              pButton
+              pRipple
+              label="New"
+              icon="pi pi-plus"
+              class="p-button-success mr-2"
+              (click)="openNew()"
+              type="button"
+            ></button>
+            <button
+              pButton
+              pRipple
+              label="Delete"
+              icon="pi pi-trash"
+              class="p-button-danger"
+              (click)="deleteSelectedItems()"
+              [disabled]="!(selectedItems?.length)"
+              type="button"
+            ></button>
+          </div>
+        </ng-template>
+
+        <ng-template pTemplate="right">
+          <button
+            pButton
+            pRipple
+            label="Exporter CSV"
+            icon="pi pi-upload"
+            class="p-button-help"
+            (click)="exportData()"
+            [disabled]="!formDataList || formDataList.length === 0"
+            type="button"
+          ></button>
+        </ng-template>
+      </p-toolbar>
+
+      <p-table
+        #dt
+        [value]="formDataList"
+        [paginator]="true"
+        [rows]="10"
+        [responsiveLayout]="'scroll'"
+        [selection]="selectedItems"
+        (selectionChange)="selectedItems = $event"
+        dataKey="id"
+      >
+        <ng-template pTemplate="header">
+          <tr>
+            <th style="width: 3rem" [exportable]="false">
+              <p-tableHeaderCheckbox></p-tableHeaderCheckbox>
+            </th>
+            <th
+              *ngFor="let field of dynamicFields"
+              [pSortableColumn]="getFieldKey(field)"
+              [exportable]="true"
+            >
+              {{ field.label }}
+              <p-sortIcon [field]="getFieldKey(field)"></p-sortIcon>
+            </th>
+            <th style="width: 10rem" [exportable]="false">Actions</th>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="body" let-data>
+          <tr>
+            <td [exportable]="false">
+              <p-tableCheckbox [value]="data"></p-tableCheckbox>
+            </td>
+            <td *ngFor="let field of dynamicFields" [exportable]="true">
+              <!-- Affichage spécial pour les images -->
+              <div *ngIf="field.type === 'image' && data[getFieldKey(field)]">
+                <img 
+                  [src]="data[getFieldKey(field)]" 
+                  [alt]="field.label"
+                  style="max-width: 100px; max-height: 100px;"
+                  class="p-shadow-2"
+                >
+              </div>
+              <!-- Affichage spécial pour les fichiers -->
+              <div *ngIf="field.type === 'file' && data[getFieldKey(field)]">
+                <a 
+                  [href]="data[getFieldKey(field)]" 
+                  target="_blank"
+                  class="p-button p-button-text"
+                >
+                  <i class="pi pi-download mr-2"></i>Télécharger
+                </a>
+              </div>
+              <!-- Affichage normal pour les autres champs -->
+              <span *ngIf="field.type !== 'image' && field.type !== 'file'">
+                {{ field.type === 'multiselect' ? getMultiOptionLabels(field, data[getFieldKey(field)]) : data[getFieldKey(field)] }}
+              </span>
+            </td>
+            <td [exportable]="false">
+              <button
+                pButton
+                icon="pi pi-pencil"
+                class="p-button-rounded p-button-success mr-2"
+                (click)="editItem(data)"
+                type="button"
+              ></button>
+              <button
+                pButton
+                icon="pi pi-trash"
+                class="p-button-rounded p-button-danger"
+                (click)="deleteItem(data)"
+                type="button"
+              ></button>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </div>
+
+    <!-- MODAL -->
+    <p-dialog
+      [(visible)]="formDialog"
+      modal="modal"
+      [style]="{ width: '50vw' }"
+      [breakpoints]="{'960px': '75vw', '640px': '90vw'}"
+      header="Formulaire dynamique"
+    >
+      <form [formGroup]="dynamicForm" (ngSubmit)="saveItem()">
+        <div *ngFor="let field of dynamicFields">
+          <div *ngIf="dynamicForm.contains(getFieldKey(field))" class="p-field">
+            <label [for]="getFieldKey(field)">{{ field.label }}</label>
+
+            <!-- Champ texte -->
+            <input
+              *ngIf="field.type === 'text'"
+              pInputText
+              type="text"
+              [formControlName]="getFieldKey(field)"
+              [id]="getFieldKey(field)"
+              [placeholder]="field.placeholder || ''"
+            />
+
+            <!-- Champ mot de passe -->
+            <input
+              *ngIf="field.type === 'password'"
+              pInputText
+              type="password"
+              [formControlName]="getFieldKey(field)"
+              [id]="getFieldKey(field)"
+              [placeholder]="field.placeholder || ''"
+            />
+
+            <!-- Champ numérique -->
+            <input
+              *ngIf="field.type === 'number'"
+              pInputText
+              type="number"
+              [formControlName]="getFieldKey(field)"
+              [id]="getFieldKey(field)"
+              [placeholder]="field.placeholder || ''"
+            />
+
+            <!-- Champ email -->
+            <input
+              *ngIf="field.type === 'email'"
+              pInputText
+              type="email"
+              [formControlName]="getFieldKey(field)"
+              [id]="getFieldKey(field)"
+              [placeholder]="field.placeholder || ''"
+            />
+
+            <!-- Champ date -->
+            <p-calendar
+              *ngIf="field.type === 'date'"
+              [formControlName]="getFieldKey(field)"
+              [id]="getFieldKey(field)"
+              dateFormat="yy-mm-dd"
+              [showIcon]="true"
+            ></p-calendar>
+
+            <!-- Pour les dropdowns -->
+            <p-dropdown 
+              *ngIf="field.type === 'select'"
+              [id]="getFieldKey(field)"
+              [options]="field.options || []"
+              [formControlName]="getFieldKey(field)"
+              [placeholder]="field.placeholder || 'Sélectionnez...'"
+              optionLabel="label"
+              optionValue="value"
+              [showClear]="true">
+            </p-dropdown>
+
+            <!-- Pour les multiselect -->
+            <p-multiSelect 
+              *ngIf="field.type === 'multiselect'"
+              [options]="field.options || []"
+              [formControlName]="getFieldKey(field)"
+              optionLabel="label"
+              optionValue="value">
+            </p-multiSelect>
+
+            <!-- Pour les radio buttons -->
+            <div *ngIf="field.type === 'radio'" class="flex flex-column gap-2">
+              <p-radioButton
+                *ngFor="let opt of field.options || []"
+                [name]="getFieldKey(field)"
+                [value]="opt.value"
+                [formControlName]="getFieldKey(field)"
+                [label]="opt.label">
+              </p-radioButton>
+            </div>
+
+            <!-- Pour les checkbox -->
+            <div *ngIf="field.type === 'checkbox' && field.options">
+              <div *ngFor="let opt of field.options" class="field-checkbox">
+                <p-checkbox 
+                  [name]="getFieldKey(field)"
+                  [value]="opt.value"
+                  [formControlName]="getFieldKey(field)"
+                  [label]="opt.label"
+                  [binary]="false">
+                </p-checkbox>
+              </div>
+            </div>
+
+            <!-- Pour les checkbox simples (sans options) -->
+            <p-checkbox 
+              *ngIf="field.type === 'checkbox' && !field.options"
+              [binary]="true"
+              [formControlName]="getFieldKey(field)"
+              [label]="field.label">
+            </p-checkbox>
+
+            <!-- Zone de texte -->
+            <textarea
+              *ngIf="field.type === 'textarea'"
+              pInputTextarea
+              [formControlName]="getFieldKey(field)"
+              [id]="getFieldKey(field)"
+              [rows]="field.rows || 5"
+              [cols]="field.cols || 30"
+              [placeholder]="field.placeholder || ''"
+            ></textarea>
+            <!-- Champ heure -->
+            <div *ngIf="field.type === 'time'" class="p-field">
+              <label [for]="'time-calendar-' + getFieldKey(field)">{{ field.label }}</label>
+              <p-calendar
+                [formControlName]="getFieldKey(field)"
+                [id]="getFieldKey(field)"
+                
+                timeOnly="true"
+                hourFormat="24"
+                [showTime]="true"
+                [showSeconds]="false"
+                [showIcon]="true">
+              </p-calendar>
+            </div>
+            <!-- Champ datetime -->
+          
+
+
+
+            <!-- Champ range -->
+            <input *ngIf="field.type === 'range'"
+              pInputText
+              type="range"
+              [formControlName]="getFieldKey(field)"
+              [id]="getFieldKey(field)"
+              [min]="field.validation?.min || 0"
+              [max]="field.validation?.max || 100"
+              [step]="field.validation?.step || 1">
+
+            <!-- Champ color -->
+            <input *ngIf="field.type === 'color'"
+              pInputText
+              type="color"
+              [formControlName]="getFieldKey(field)"
+              [id]="getFieldKey(field)">
+
+              <div *ngIf="field.type === 'file' || field.type === 'image'">
+                <p-fileUpload
+                mode="basic"
+                name="file" 
+                [url]="uploadUrl"
+                (onUpload)="onUpload($event, field)"
+                [multiple]="field.multiple || false"
+                [accept]="field.type === 'image' ? 'image/*' : '*'"
+                [maxFileSize]="10000000"
+                chooseLabel="Choisir un fichier"
+                [auto]="true">
+              </p-fileUpload>
+                
+                <!-- Afficher le fichier existant -->
+                <div *ngIf="currentItem && currentItem[getFieldKey(field)]" class="mt-2">
+                  <span class="font-medium">Fichier actuel : </span>
+                  <a 
+                    [href]="currentItem[getFieldKey(field)]" 
+                    target="_blank"
+                    class="text-primary hover:underline"
+                  >
+                    {{ currentItem[getFieldKey(field)] | filename }}
+                  </a>
+                  <button 
+                    pButton 
+                    type="button" 
+                    icon="pi pi-times" 
+                    class="p-button-text p-button-danger ml-2"
+                    (click)="removeFile(field)"
+                    pTooltip="Supprimer"
+                    tooltipPosition="top"
+                  ></button>
+                </div>
+                
+                <!-- Afficher le nouveau fichier uploadé -->
+                <div *ngIf="uploadedFiles[getFieldKey(field)]" class="mt-2">
+                  <span class="font-medium">Nouveau fichier : </span>
+                  <a 
+                    [href]="uploadedFiles[getFieldKey(field)]" 
+                    target="_blank"
+                    class="text-primary hover:underline"
+                  >
+                    {{ uploadedFiles[getFieldKey(field)] | filename }}
+                  </a>
+                </div>
+              </div>
+                
+                <small *ngIf="uploadError" class="p-error">{{ uploadError }}>
+              
+              <span *ngIf="dynamicForm.get(getFieldKey(field))?.errors?.['required']">
+                Ce champ est requis.
+              </span>
+              <span *ngIf="dynamicForm.get(getFieldKey(field))?.errors?.['minlength']">
+                Minimum {{field.validation?.minLength}} caractères.
+              </span>
+              <span *ngIf="dynamicForm.get(getFieldKey(field))?.errors?.['maxlength']">
+                Maximum {{field.validation?.maxLength}} caractères.
+              </span>
+              <span *ngIf="dynamicForm.get(getFieldKey(field))?.errors?.['pattern']">
+                Format invalide.
+              </span>
+            </small>
+          </div>
+        </div>
+
+        <div class="p-dialog-footer">
+          <button
+            pButton
+            type="submit"
+            label="Enregistrer"
+            class="p-button-success"
+            [disabled]="dynamicForm.invalid"
+          ></button>
+          <button
+            pButton
+            type="button"
+            label="Annuler"
+            class="p-button-secondary"
+            (click)="hideDialog()"
+          ></button>
+        </div>
+      </form>
+    </p-dialog>
+  </div>
+</div>

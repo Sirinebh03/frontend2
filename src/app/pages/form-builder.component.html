@@ -1,0 +1,337 @@
+<div class="container">
+  <div class="mode-controls">
+    <button class="mode-btn" 
+            [class.active]="mode === 'builder'" 
+            (click)="switchToBuilderMode()">
+      Créer un nouveau formulaire
+    </button>
+    
+    <div class="edit-form-container">
+      <button class="mode-btn" 
+              [class.active]="mode === 'editor'" 
+              (click)="toggleFormList()">
+        Modifier un formulaire existant
+      </button>
+      
+      <div class="form-list" *ngIf="isFormListVisible">
+        <div class="form-list-header">
+          <h3>Formulaires existants</h3>
+          <button class="close-btn" (click)="toggleFormList()">×</button>
+        </div>
+        <div class="form-list-content">
+          <div *ngFor="let form of existingForms" 
+               class="form-item" 
+               (click)="loadFormForEditing(form.id)">
+            {{ form.name }}
+            <span class="form-date">{{ form.created_at | date }}</span>
+          </div>
+          <div *ngIf="!existingForms.length" class="no-forms">
+            Aucun formulaire existant
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="form-header" [formGroup]="form">
+    <label for="formName">Nom du formulaire :</label>
+    <input id="formName" formControlName="formName" placeholder="Entrez le nom du formulaire..." />
+    <div *ngIf="form.get('formName')?.invalid && (form.get('formName')?.dirty || form.get('formName')?.touched)" class="error-message">
+      <div *ngIf="form.get('formName')?.errors?.required">Le nom du formulaire est requis</div>
+      <div *ngIf="form.get('formName')?.errors?.maxlength">Le nom ne doit pas dépasser 255 caractères</div>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="save-btn" (click)="saveForm()">
+        {{ mode === 'builder' ? 'Enregistrer' : 'Mettre à jour' }}
+      </button>
+      <button type="button" class="reset-btn" (click)="resetForm()">Réinitialiser</button>
+      <button type="button" class="export-btn" (click)="exportForm()">Exporter</button>
+    </div>
+  </div>
+
+  <div class="form-builder-container">
+    <div class="elements-panel">
+      <h3>Éléments disponibles</h3>
+      <div cdkDropList id="elementsList" 
+           [cdkDropListData]="elements"
+           [cdkDropListConnectedTo]="['formArea']"
+           (cdkDropListDropped)="drop($event)">
+        <div *ngFor="let element of elements" class="element" cdkDrag>
+          {{ element.label }}
+        </div>
+      </div>
+    </div>
+
+    <div class="form-preview">
+      <h3>Prévisualisation du formulaire</h3>
+      <div cdkDropList id="formArea" 
+           [cdkDropListData]="formElements"
+           [cdkDropListConnectedTo]="['elementsList']"
+           (cdkDropListDropped)="drop($event)">
+        
+        <div *ngIf="!formElements.length" class="empty-form">
+          Glissez-déposez des éléments ici pour commencer
+        </div>
+
+        <div *ngFor="let field of formElements; let i = index" class="form-field">
+          <div class="field-header">
+            <label>{{ field.label }} <span *ngIf="field.required" class="required">*</span></label>
+            <div class="field-actions">
+              <button class="edit-btn" (click)="openModal(field)">✏️</button>
+              <button class="delete-btn" (click)="removeElement(i)">🗑️</button>
+            </div>
+          </div>
+          
+          <ng-container [ngSwitch]="field.type">
+            <!-- Text Input -->
+            <input *ngSwitchCase="'text'" type="text" 
+                   [placeholder]="field.placeholder || 'Entrez du texte...'" 
+                   [maxLength]="field.maxLength" />
+
+            <!-- Number Input -->
+            <input *ngSwitchCase="'number'" type="number" 
+                   [min]="field.min" [max]="field.max"
+                   placeholder="Entrez un nombre" />
+
+            <!-- Password Input -->
+            <input *ngSwitchCase="'password'" type="password" 
+                   [placeholder]="field.placeholder || 'Mot de passe...'" />
+            
+              <input *ngSwitchCase="'time'" type="time" />
+            <!-- Time Input -->
+       
+
+            <!-- Date Input -->
+            <input *ngSwitchCase="'date'" type="date" />
+
+            <!-- Email Input -->
+            <input *ngSwitchCase="'email'" type="email" 
+                   [placeholder]="field.placeholder || 'Entrez un email...'" />
+
+            <!-- Textarea -->
+            <textarea *ngSwitchCase="'textarea'" 
+                     [placeholder]="field.placeholder || 'Entrez du texte...'"
+                     [rows]="field.rows || 3"
+                     [maxLength]="field.maxLength"></textarea>
+
+            <!-- Select -->
+            <select *ngSwitchCase="'select'">
+              <option value="">-- Sélectionnez --</option>
+              <option *ngFor="let option of getOptionsForField(field)" 
+                      [value]="option.key">
+                {{ option.value }}
+              </option>
+            </select>
+
+            <!-- Multiselect -->
+            <select *ngSwitchCase="'multiselect'" multiple>
+              <option *ngFor="let option of getOptionsForField(field)" 
+                      [value]="option.key">
+                {{ option.value }}
+              </option>
+            </select>
+
+            <!-- Radio Buttons -->
+            <div *ngSwitchCase="'radio'" class="radio-group">
+              <label *ngFor="let option of getOptionsForField(field)">
+                <input type="radio" [name]="field.name" [value]="option.key" />
+                {{ option.value }}
+              </label>
+            </div>
+
+            <!-- Checkboxes -->
+            <div *ngSwitchCase="'checkbox'" class="checkbox-group">
+              <label *ngFor="let option of getOptionsForField(field)">
+                <input type="checkbox" [value]="option.key" />
+                {{ option.value }}
+              </label>
+            </div>
+
+            <!-- File Input -->
+            <input *ngSwitchCase="'file'" type="file" 
+                   [accept]="field.accept" 
+                   [multiple]="field.multiple"
+                   (change)="handleFileInput($event, field.name)" />
+
+            <!-- Image Input -->
+            <div *ngSwitchCase="'image'">
+              <input type="file" 
+                     accept="image/*" 
+                     [multiple]="field.multiple"
+                     (change)="handleFileInput($event, field.name)" />
+              <div *ngIf="field.previewUrl" class="image-preview">
+                <img [src]="field.previewUrl" alt="Prévisualisation" />
+              </div>
+            </div>
+
+            <!-- Color Picker -->
+            <input *ngSwitchCase="'color'" type="color" />
+
+            <!-- Range Slider -->
+            <input *ngSwitchCase="'range'" type="range" 
+                   [min]="field.min || 0" 
+                   [max]="field.max || 100" />
+          </ng-container>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal d'édition -->
+<p-dialog header="Modifier les propriétés du champ"
+          [(visible)]="showModal"
+          [modal]="true"
+          [closable]="true"
+          [style]="{ width: '500px' }"
+          [baseZIndex]="10000">
+    <div class="modal-header">
+      <h3 class="modal-title">Modifier l'élément</h3>
+      <button class="close-btn" (click)="closeModal()">×</button>
+    </div>
+
+    <form [formGroup]="selectedElementForm" class="modal-form">
+      <div class="form-group">
+        <label>Nom technique</label>
+        <input type="text" formControlName="name" class="form-control" />
+      </div>
+
+      <div class="form-group">
+        <label>Label</label>
+        <input type="text" formControlName="label" class="form-control" />
+      </div>
+
+      <div class="form-group">
+        <label>Type</label>
+        <select formControlName="type" class="form-select">
+          <option value="text">Texte</option>
+          <option value="number">Nombre</option>
+          <option value="password">Mot de passe</option>
+          <option value="date">Date</option>
+          <option value="email">Email</option>
+          <option value="textarea">Zone de texte</option>
+          <option value="select">Liste déroulante</option>
+          <option value="radio">Boutons radio</option>
+          <option value="checkbox">Cases à cocher</option>
+          <option value="multiselect">Sélection multiple</option>
+          <option value="file">Fichier</option>
+          <option value="image">Image</option>
+          <option value="color">Couleur</option>
+          <option value="range">Plage</option>
+        </select>
+      </div>
+
+      <div class="form-group" *ngIf="!['checkbox', 'radio', 'color', 'range'].includes(selectedElementForm.get('type')?.value)">
+        <label>Placeholder</label>
+        <input type="text" formControlName="placeholder" class="form-control" />
+      </div>
+
+      <div class="form-group" *ngIf="['text', 'textarea'].includes(selectedElementForm.get('type')?.value)">
+        <label>Longueur maximale</label>
+        <input type="number" formControlName="maxLength" class="form-control" />
+      </div>
+
+      <div class="form-group" *ngIf="selectedElementForm.get('type')?.value === 'textarea'">
+        <label>Nombre de lignes</label>
+        <input type="number" formControlName="rows" class="form-control" />
+      </div>
+
+      <div class="form-group" *ngIf="['number', 'range'].includes(selectedElementForm.get('type')?.value)">
+        <div class="number-range">
+          <div>
+            <label>Valeur minimale</label>
+            <input type="number" formControlName="min" class="form-control" />
+          </div>
+          <div>
+            <label>Valeur maximale</label>
+            <input type="number" formControlName="max" class="form-control" />
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group" *ngIf="['file', 'image'].includes(selectedElementForm.get('type')?.value)">
+        <label>Types de fichiers acceptés</label>
+        <input type="text" formControlName="accept" class="form-control" 
+               placeholder="Ex: image/*, .pdf, .doc" />
+      </div>
+
+      <div class="form-group form-checkbox" *ngIf="['file', 'image'].includes(selectedElementForm.get('type')?.value)">
+        <label>
+          <input type="checkbox" formControlName="multiple" />
+          Autoriser plusieurs fichiers
+        </label>
+      </div>
+
+      <div class="form-group form-checkbox">
+        <label>
+          <input type="checkbox" formControlName="required" />
+          Champ obligatoire
+        </label>
+      </div>
+
+      <!-- Options pour les champs avec options -->
+      <div class="form-group" *ngIf="['select', 'multiselect', 'radio', 'checkbox'].includes(selectedElementForm.get('type')?.value)">
+        <div class="form-group form-checkbox">
+          <label>
+            <input type="checkbox" formControlName="dynamic" />
+            Charger dynamiquement depuis une table ?
+          </label>
+        </div>
+
+        <!-- Options dynamiques -->
+        <div *ngIf="selectedElementForm.get('dynamic')?.value" class="dynamic-options">
+          <div class="form-group">
+            <label>Table source</label>
+            <select formControlName="sourceTable" class="form-select"
+                    (change)="loadFieldsForSelectedTable(selectedElementForm.get('sourceTable')?.value)">
+              <option value="">Sélectionnez une table</option>
+              <option *ngFor="let table of availableTables" [value]="table">{{ table }}</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Colonne clé</label>
+            <select formControlName="keyColumn" class="form-select">
+              <option value="">Sélectionnez une colonne</option>
+              <option *ngFor="let field of sourceTableFields" [value]="field">{{ field }}</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Colonne valeur</label>
+            <select formControlName="valueColumn" class="form-select">
+              <option value="">Sélectionnez une colonne</option>
+              <option *ngFor="let field of sourceColumnFields" [value]="field">{{ field }}</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Options statiques -->
+        <div *ngIf="!selectedElementForm.get('dynamic')?.value" class="static-options">
+          <div class="form-group">
+            <label>Options</label>
+            <div formArrayName="options" class="options-list">
+              <div *ngFor="let option of optionsArray.controls; let i = index"
+                   [formGroupName]="i"
+                   class="option-item">
+                <input type="text" formControlName="key" placeholder="Clé" class="form-control" />
+                <input type="text" formControlName="value" placeholder="Valeur" class="form-control" />
+                <button type="button" (click)="removeOption(i)" class="remove-option-btn">×</button>
+              </div>
+            </div>
+            <div class="add-option">
+              <input type="text" formControlName="newOptionKey" placeholder="Nouvelle clé" class="form-control" />
+              <input type="text" formControlName="newOptionValue" placeholder="Nouvelle valeur" class="form-control" />
+              <button type="button" (click)="addOption()" class="add-option-btn">+ Ajouter</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" (click)="saveElement()" class="save-btn">Enregistrer</button>
+        <button type="button" (click)="closeModal()" class="cancel-btn">Annuler</button>
+      </div>
+    </form>
+
+</p-dialog> 
