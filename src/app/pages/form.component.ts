@@ -9,6 +9,7 @@ import { HttpClient } from '@angular/common/http';
 import { environment } from 'src/environments/environment';
 import { FormGroupDirective } from '@angular/forms';
 import { FormControl } from '@angular/forms';
+import { KeycloakService } from 'keycloak-angular';
 
 interface FieldOption {
   label: any;
@@ -58,11 +59,11 @@ interface FormResponse {
 }
 
 @Component({
-  selector: 'app-form-detail',
-  templateUrl: './form-detail.component.html',
+  selector: 'app-form',
+  templateUrl: './form.component.html',
   providers: [MessageService]
 })
-export class FormDetailComponent implements OnInit {
+export class FormComponent implements OnInit {
   @ViewChild('dt') dt!: Table;
 
   formDataList: any[] = [];
@@ -80,21 +81,38 @@ export class FormDetailComponent implements OnInit {
   dynamicForm: FormGroup = this.fb.group({});
   currentItemId: number | null = null;
   currentItem: any = null;
+  currentUserId: string | null = null;
   uploadUrl: string = '/api/forms/upload';
   uploadError: string | null = null;
-uploadedFiles: { [key: string]: File | string } = {};
+  uploadedFiles: {[key: string]: string} = {};
   imagePreviewVisible: boolean = false;
   previewImageUrl: string = '';
-
-  constructor(
+ constructor(
     private route: ActivatedRoute,
     private formService: FormService,
     private fb: FormBuilder,
     private messageService: MessageService,
-    private router: Router
+    private router: Router,
+    private keycloakService: KeycloakService
   ) {}
 
-  ngOnInit(): void {
+ async ngOnInit(): Promise<void> {
+    // Récupérer l'ID de l'utilisateur Keycloak
+    try {
+      const userDetails = await this.keycloakService.loadUserProfile();
+      this.currentUserId = userDetails.id;
+    } catch (error) {
+      console.error('Failed to load user details', error);
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: 'Failed to load user information',
+        life: 5000
+      });
+      this.router.navigate(['/']);
+      return;
+    }
+
     this.route.paramMap.subscribe(params => {
       this.name = params.get('name') || '';
       
@@ -112,28 +130,24 @@ uploadedFiles: { [key: string]: File | string } = {};
     });
   }
 
- // Dans form-detail.component.ts
-showImagePreview(imageUrl: string): void {
-  if (!imageUrl) return;
-  
-  // Si c'est déjà une URL complète
-  if (imageUrl.startsWith('http') || imageUrl.startsWith('/')) {
-    this.previewImageUrl = imageUrl;
-  } 
-  // Si c'est un chemin relatif
-  else {
-    this.previewImageUrl = this.formService.getFormSpecificFileUrl(this.formId, imageUrl);
+  showImagePreview(imageUrl: string): void {
+    if (imageUrl && !imageUrl.startsWith('http') && !imageUrl.startsWith('/')) {
+      imageUrl = this.formService.getFormSpecificFileUrl(this.formId, imageUrl);
+    }
+    
+    if (imageUrl && (imageUrl.startsWith('http') || imageUrl.startsWith('/'))) {
+      this.previewImageUrl = imageUrl;
+      this.imagePreviewVisible = true;
+    } else {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Erreur',
+        detail: 'URL de l\'image invalide',
+        life: 5000
+      });
+    }
   }
-  
-  this.imagePreviewVisible = true;
-}
 
-handleImageError(event: any, item: any, field: DynamicField): void {
-  const fieldKey = this.getFieldKey(field);
-  if (item.filePreviews && item.filePreviews[fieldKey]) {
-    item.filePreviews[fieldKey].url = 'assets/images/placeholder.png';
-  }
-}
   downloadFile(fileUrl: string): void {
     window.open(fileUrl, '_blank');
   }
@@ -173,16 +187,21 @@ handleImageError(event: any, item: any, field: DynamicField): void {
 
   loadData(): Promise<void> {
     return new Promise((resolve, reject) => {
-      if (!this.formId) {
-        reject('No form ID');
+      if (!this.formId || !this.currentUserId) {
+        reject('No form ID or user ID');
         return;
       }
 
       this.isLoading = true;
       
-      this.formService.getFormDataWithEntries(this.formId).subscribe({
+      this.formService.getUserFormEntries(this.formId).subscribe({
         next: (res: FormResponse) => {
-          this.formDataList = (res.entries || []).map(entry => {
+          // Filtrer les entrées pour ne garder que celles de l'utilisateur courant
+          const userEntries = (res.entries || []).filter(entry => 
+            entry.user_id === this.currentUserId
+          );
+
+          this.formDataList = userEntries.map(entry => {
             const processedEntry: any = { ...entry };
 
             (res.form_data || []).forEach(field => {
@@ -217,6 +236,7 @@ handleImageError(event: any, item: any, field: DynamicField): void {
       });
     });
   }
+
 
   private loadFormMetadata(): void {
     this.formService.getFormMetadata(this.formId).subscribe({
@@ -269,18 +289,7 @@ handleImageError(event: any, item: any, field: DynamicField): void {
     this.dynamicForm.get(key)?.setValue(null);
   }
 
- onUpload(event: any, field: DynamicField): void {
-  console.log(event)
-   console.log('Selected files:', this.dynamicForm.value);
-    const files = event.currentFiles;
-    this.dynamicForm.get(field.name)?.setValue(files);
-    console.log('Selected files:', this.dynamicForm.value);
-  }
-/*
   onUpload(event: any, field: DynamicField): void {
-
-
-
     if (event.originalEvent?.status === 200) {
       const response = event.originalEvent.body;
       if (response && response.filePath) {
@@ -308,9 +317,8 @@ handleImageError(event: any, item: any, field: DynamicField): void {
         });
       }
     }
-   
   }
-   */
+
   private prepareFormData(): any {
     const rawData = this.dynamicForm.value;
     const mappedData: any = {};
@@ -319,12 +327,12 @@ handleImageError(event: any, item: any, field: DynamicField): void {
       const key = this.getFieldKey(field);
       const value = rawData[key];
 
-        if (field.type === 'file' || field.type === 'image') {
-            if (this.uploadedFiles[key] && !(this.uploadedFiles[key] instanceof File)) {
-                mappedData[key] = this.uploadedFiles[key];
-            }
-            return;
-        }
+      if (field.type === 'file' || field.type === 'image') {
+        mappedData[key] = this.uploadedFiles[key] || 
+                         (this.currentItem ? this.currentItem[key] : null);
+        return;
+      }
+
       switch (field.type) {
         case 'date':
         case 'datetime':
@@ -536,7 +544,7 @@ handleImageError(event: any, item: any, field: DynamicField): void {
     this.dynamicForm.reset();
   }
 
-saveItem(): void {
+  saveItem(): void {
     if (this.dynamicForm.invalid) {
         this.markFormGroupTouched(this.dynamicForm);
         this.messageService.add({
@@ -551,20 +559,9 @@ saveItem(): void {
     this.isLoading = true;
     const formData = this.prepareFormData();
 
-    // Préparer les fichiers pour l'envoi
-    const filesToUpload: {[key: string]: File} = {};
-    Object.keys(this.uploadedFiles).forEach(key => {
-        if (this.uploadedFiles[key] instanceof File) {
-            filesToUpload[key] = this.uploadedFiles[key] as File;
-        }
-    });
-
-    // Fusionner les données avec les fichiers
-    const submissionData = {...formData, ...filesToUpload};
-
     const request$ = this.currentItemId
-        ? this.formService.updateFormData(this.formId, this.currentItemId, submissionData)
-        : this.formService.submitFormData(this.formId, submissionData);
+        ? this.formService.updateFormData(this.formId, this.currentItemId, formData)
+        : this.formService.submitFormData(this.formId, formData);
 
     request$.subscribe({
         next: () => {
@@ -588,7 +585,7 @@ saveItem(): void {
             this.isLoading = false;
         }
     });
-}
+  }
 
   deleteItem(item: any): void {
     if (!this.formId || !item?.id) return;

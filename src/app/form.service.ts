@@ -1,142 +1,313 @@
-import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable } from 'rxjs';
-import { catchError } from 'rxjs/operators';
-import { ErrorHandler } from '@angular/core';
-import { HttpErrorResponse } from '@angular/common/http';
-import { throwError } from 'rxjs';
+ import { Injectable } from '@angular/core';
+import { HttpClient, HttpHeaders, HttpErrorResponse, HttpEvent } from '@angular/common/http';
+import { Observable, throwError, of } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import { FormGroup } from '@angular/forms';
+import { AuthService } from './auth.service'; // Service d'authentification à créer
 
 @Injectable({
   providedIn: 'root'
 })
 export class FormService {
-  private apiUrl = 'http://localhost:8000/api/forms';
+  private apiUrl = 'http://localhost:8000/api';
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private authService: AuthService) {}
 
-  // ---------------------- Form CRUD ----------------------
+  // ---------------------- Méthodes Helper ----------------------
 
-  // Créer un formulaire
- // In your FormService
-saveForm(formData: any): Observable<any> {
-  return this.http.post(`${this.apiUrl}`, formData);
-  // Let browser set Content-Type with boundary
-}
-
-updateForm(id: number, formData: any): Observable<any> {
-  // Envoyer en JSON directement, pas en FormData
-  return this.http.put(`${this.apiUrl}/${id}`, formData).pipe(
-    catchError(this.handleError)
-  );
-}
-  
-  saveFieldOptions(formId: number, fieldName: string, options: any[]): Observable<any> {
-    return this.http.post(`${this.apiUrl}/${formId}/field-options`, {
-        field_name: fieldName,
-        options: options
-    });
-}
-
-  // Récupérer tous les formulaires
-  getForms(): Observable<any[]> {
-    return this.http.get<any[]>(this.apiUrl);
-  }
-
-  // Récupérer un formulaire par son ID
-  getFormById(id: string): Observable<any> {
-    return this.http.get<any>(`${this.apiUrl}/${id}`);
-  }
-
-  // Mettre à jour un formulaire
- 
-
-  // Supprimer un formulaire
-  deleteForm(id: string): Observable<any> {
-    return this.http.delete<any>(`${this.apiUrl}/${id}`);
-  }
-
-  // Récupérer la configuration d’un formulaire (champs, etc.)
-  getFormConfig(id: number): Observable<any> {
-    return this.http.get<any>(`${this.apiUrl}/${id}/config`);
-  }
-
-  // ---------------------- Données d’entrée ----------------------
-
-  // Envoyer les données d’un formulaire rempli
-  submitFormData(id: string, data: any): Observable<any> {
-    return this.http.post<any>(`${this.apiUrl}/${id}/submit`, data, {
-      headers: new HttpHeaders({ 'Content-Type': 'application/json' })
+  private getAuthHeaders(): HttpHeaders {
+    const token = this.authService.getToken();
+    return new HttpHeaders({
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
     });
   }
 
-  // Récupérer les données remplies pour un formulaire (entrées utilisateurs)
-  getFormDataWithEntries(id: number): Observable<any> {
-    return this.http.get<any>(`${this.apiUrl}/${id}/data`);
-  }
-
-  // Mettre à jour une entrée spécifique d’un formulaire
-  updateFormData(formId: any, itemId: number, data: any): Observable<any> {
-    return this.http.put(`${this.apiUrl}/${formId}/entries/${itemId}/update`, data, {
-      headers: new HttpHeaders({ 'Content-Type': 'application/json' })
+  private getAuthHeadersForFiles(): HttpHeaders {
+    const token = this.authService.getToken();
+    return new HttpHeaders({
+      'Authorization': `Bearer ${token}`
     });
-  }
-  // Supprimer une entrée spécifique d’un formulaire
-  deleteFormData(formId: any, itemId: number): Observable<any> {
-    return this.http.delete(`${this.apiUrl}/${formId}/entries/${itemId}/delete`);
-  }
-
-  // ---------------------- Options dynamiques depuis la base ----------------------
-  
-
-
- 
-  // Dans votre FormService
-getDynamicOptions(table: string, keyColumn: string, valueColumn: string): Observable<{[key: string]: string}> {
-  return this.http.get<{[key: string]: string}>(
-      `${this.apiUrl}/tables/${table}/options?key_column=${keyColumn}&value_column=${valueColumn}`
-  );
-}
-
-
-getTableFields(tableName: string): Observable<string[]> {
-  return this.http.get<string[]>(`${this.apiUrl}/tables/${tableName}/columns`);
-}
-
-  // Récupérer les tables disponibles
-  getAvailableTables(): Observable<string[]> {
-    return this.http.get<string[]>(`${this.apiUrl}/table`);
-  }
-
-  // Récupérer les champs d'une table
-  getFieldsFromTable(table: string): Observable<string[]> {
-    return this.http.get<string[]>(`${this.apiUrl}/tables/${table}/fields`);
-  }
-
-  // Récupérer les options clé-valeur d'une table
-  getTableFieldOptions(table: string, keyColumn: string, valueColumn: string): Observable<any[]> {
-    return this.http.get<any[]>(`/api/table-options`, { params: { table, keyColumn, valueColumn } });
-  }
-
-  // Récupérer les valeurs d'une colonne
-  getColumnValues(table: string, column: string): Observable<string[]> {
-    return this.http.get<string[]>(`${this.apiUrl}/get-column-values/${table}/${column}`);
-  }
-  // Récupérer les options d'un champ spécifique
-  getFieldOptions(table: string, field: string): Observable<any[]> {
-    return this.http.get<any[]>(`${this.apiUrl}/tables/${table}/fields/${field}/options`);
   }
 
   private handleError(error: HttpErrorResponse): Observable<never> {
-    let errorMessage = 'An unknown error occurred!';
-    if (error.error instanceof ErrorEvent) {
-      // Client-side or network error
-      errorMessage = `Error: ${error.error.message}`;
-    } else {
-      // Backend error
-      errorMessage = `Error Code: ${error.status}\nMessage: ${error.message}`;
+    if (error.status === 401) {
+      // Gérer l'expiration du token ou la déconnexion
+      this.authService.logout();
+      return throwError(() => new Error('Session expirée. Veuillez vous reconnecter.'));
     }
-    console.error(errorMessage);
+    
+    let errorMessage = 'Une erreur est survenue';
+    if (error.error instanceof ErrorEvent) {
+      errorMessage = `Erreur client: ${error.error.message}`;
+    } else {
+      errorMessage = `Erreur serveur: ${error.status}\nMessage: ${error.message}`;
+      if (error.error?.message) {
+        errorMessage += `\nDétails: ${error.error.message}`;
+      }
+    }
     return throwError(() => new Error(errorMessage));
   }
+
+  // ---------------------- Gestion des Formulaires ----------------------
+
+  getForms(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/forms`).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  getFormById(id: string): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/forms/${id}`).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  getFormByName(name: string): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/forms/${name}`).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+getFormsWithPermissions() {
+  return this.http.get(`${this.apiUrl}/forms/with-permissions`);
+}
+
+  getFormIdByName(name: string): Observable<number> {
+    return this.http.get<{id: number}>(`${this.apiUrl}/forms/id-by-name/${name}`).pipe(
+      map(response => response.id),
+      catchError(this.handleError)
+    );
+  }
+
+  saveForm(formData: any): Observable<any> {
+    return this.http.post(`${this.apiUrl}/forms`, formData, {
+      headers: this.getAuthHeaders()
+    }).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  updateForm(id: number, formData: any): Observable<any> {
+    return this.http.put(`${this.apiUrl}/forms/${id}`, formData, {
+      headers: this.getAuthHeaders()
+    }).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  deleteForm(id: string): Observable<any> {
+    return this.http.delete(`${this.apiUrl}/forms/${id}`, {
+      headers: this.getAuthHeaders()
+    }).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  getUserFormDetails(userId: string, formId: string): Observable<any> {
+  return this.http.get(`${this.apiUrl}/forms/users/${userId}/${formId}`);
+}
+  getFormConfig(id: number): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/forms/${id}/config`).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  // ---------------------- Gestion des Données de Formulaire ----------------------
+
+submitFormData(formId: any, data: any): Observable<any> {
+    const url = `${this.apiUrl}/forms/${formId}/submit`;
+    const token = this.authService.getToken();
+    
+    // Convertir les données en FormData si des fichiers sont présents
+    const hasFiles = Object.values(data).some(val => val instanceof File);
+    
+    if (hasFiles) {
+        const formData = new FormData();
+        
+        // Ajouter tous les champs au FormData
+        Object.keys(data).forEach(key => {
+            if (data[key] instanceof File) {
+                formData.append(key, data[key]);
+            } else if (typeof data[key] === 'object') {
+                formData.append(key, JSON.stringify(data[key]));
+            } else {
+                formData.append(key, data[key]);
+            }
+        });
+        
+        return this.http.post(url, formData, {
+            headers: new HttpHeaders({
+                'Authorization': `Bearer ${token}`
+                // Ne pas mettre 'Content-Type' pour FormData, il sera automatiquement défini
+            })
+        }).pipe(
+            catchError(this.handleError)
+        );
+    } else {
+        // Cas normal sans fichiers
+        return this.http.post(url, data, {
+            headers: new HttpHeaders({
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            })
+        }).pipe(
+            catchError(this.handleError)
+        );
+    }
+}
+  updateFormData(formId: any, entryId: number, data: any): Observable<any> {
+    return this.http.put(`${this.apiUrl}/forms/${formId}/entries/${entryId}`, data, {
+      headers: this.getAuthHeaders()
+    }).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  deleteFormData(formId: any, entryId: number): Observable<any> {
+    return this.http.delete(`${this.apiUrl}/forms/${formId}/entries/${entryId}`, {
+      headers: this.getAuthHeaders()
+    }).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  getUserFormEntries(formId: string): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/forms/user/${formId}/entries`, {
+      headers: this.getAuthHeaders()
+    }).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  getFormDataWithEntries(formId: number): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/forms/${formId}/data`
+    );
+  }
+
+  // ---------------------- Gestion des Fichiers ----------------------
+
+  uploadFile(formId: string, file: File): Observable<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    return this.http.post(`${this.apiUrl}/forms/${formId}/upload`, formData, {
+      headers: this.getAuthHeadersForFiles(),
+      reportProgress: true
+    }).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  deleteFormFile(formId: string, filename: string): Observable<any> {
+    return this.http.delete(`${this.apiUrl}/forms/${formId}/files/${filename}`, {
+      headers: this.getAuthHeaders()
+    }).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  getFileUrl(formId: number, filename: string): string {
+    return `${this.apiUrl}/forms/${formId}/files/${filename}`;
+  }
+
+  isFormFileImage(filename: string): boolean {
+    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'];
+    const extension = filename.split('.').pop()?.toLowerCase();
+    return extension ? imageExtensions.includes(extension) : false;
+  }
+
+  // ---------------------- Options Dynamiques ----------------------
+
+  getAvailableTables(): Observable<string[]> {
+    return this.http.get<string[]>(`${this.apiUrl}/forms/table`).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  getTableFields(tableName: string): Observable<string[]> {
+    return this.http.get<string[]>(`${this.apiUrl}/forms/tables/${tableName}/fields`).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  getColumnValues(table: string, column: string): Observable<string[]> {
+    return this.http.get<string[]>(`${this.apiUrl}/forms/get-column-values/${table}/${column}`).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  getDynamicOptions(table: string, keyColumn: string, valueColumn: string): Observable<any[]> {
+    return this.http.get<any[]>(
+      `${this.apiUrl}/forms/tables/${table}/options`,
+      { params: { key_column: keyColumn, value_column: valueColumn } }
+    ).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  getFieldOptions(formId: number, fieldName: string): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/forms/options/${formId}/${fieldName}`).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  saveFieldOptions(formId: number, fieldName: string, options: any[]): Observable<any> {
+    return this.http.post(`${this.apiUrl}/forms/${formId}/field-options`, {
+      field_name: fieldName,
+      options: options
+    }, {
+      headers: this.getAuthHeaders()
+    }).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  // ---------------------- Métadonnées ----------------------
+
+  getFormMetadata(formId: number): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/forms/${formId}/metadata`).pipe(
+      catchError(this.handleError)
+    );
+  }
+  // For table field options
+getTableFieldOptions(table: string, keyColumn: string, valueColumn: string): Observable<any> {
+  return this.http.get<any>(
+    `${this.apiUrl}/forms/tables/${table}/options`,
+    { params: { key_column: keyColumn, value_column: valueColumn } }
+  ).pipe(
+    catchError(this.handleError)
+  );
+}
+
+// For form-specific file URLs
+// Dans form.service.ts
+getFormSpecificFileUrl(formId: number, filenameOrPath: string): string {
+  if (!filenameOrPath) return '';
+  
+  // Si c'est déjà une URL complète
+  if (filenameOrPath.startsWith('http') || filenameOrPath.startsWith('/')) {
+    return filenameOrPath;
+  }
+  
+  // Extraire le nom de fichier si c'est un chemin
+  const filename = filenameOrPath.split('/').pop();
+  
+  return `http://localhost:8000/storage/uploads/forms/${formId}/${filename}`;
+}
+
+// For upload URLs
+getUploadUrl(formId: string | number): string {
+  return `${this.apiUrl}/forms/${formId}/upload`;
+}
+
+// Slugify helper method
+slugify(text: string): string {
+  return text.toString().toLowerCase()
+    .replace(/\s+/g, '-')           // Replace spaces with -
+    .replace(/[^\w\-]+/g, '')       // Remove all non-word chars
+    .replace(/\-\-+/g, '-')         // Replace multiple - with single -
+    .replace(/^-+/, '')             // Trim - from start of text
+    .replace(/-+$/, '');            // Trim - from end of text
+}
 }

@@ -344,6 +344,30 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
     }
   }
 
+  dropFromAvailable(event: CdkDragDrop<FormElement[]>) {
+  if (event.previousContainer === event.container) {
+    // Déplacement dans la même liste (éléments disponibles)
+    moveItemInArray(event.container.data, event.previousIndex, event.currentIndex);
+  } else {
+    // Copie depuis la liste des éléments disponibles vers le formulaire
+    const copiedElement = this.deepCloneElement(event.previousContainer.data[event.previousIndex]);
+    this.formElements.splice(event.currentIndex, 0, copiedElement);
+    this.openModal(copiedElement);
+  }
+}
+
+// Pour le réarrangement des champs dans le formulaire
+dropInForm(event: CdkDragDrop<FormElement[]>) {
+  if (event.previousContainer === event.container) {
+    // Réorganisation dans le formulaire
+    moveItemInArray(this.formElements, event.previousIndex, event.currentIndex);
+  } else {
+    // Transfert depuis la liste des éléments disponibles (au cas où)
+    const copiedElement = this.deepCloneElement(event.previousContainer.data[event.previousIndex]);
+    this.formElements.splice(event.currentIndex, 0, copiedElement);
+    this.openModal(copiedElement);
+  }
+}
   openModal(element: FormElement): void {
     this.selectedElement = element;
     

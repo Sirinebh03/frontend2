@@ -1,0 +1,355 @@
+<div class="grid">
+  <div class="col-12">
+    <div class="card">
+      <p-toast></p-toast>
+
+      <p-toolbar class="mb-4">
+        <ng-template pTemplate="left">
+          <div class="my-2">
+            <button
+              pButton
+              pRipple
+              label="New"
+              icon="pi pi-plus"
+              class="p-button-success mr-2"
+              (click)="openNew()"
+              type="button"
+            ></button>
+            <button
+              pButton
+              pRipple
+              label="Delete"
+              icon="pi pi-trash"
+              class="p-button-danger"
+              (click)="deleteSelectedItems()"
+              [disabled]="!selectedItems?.length"
+              type="button"
+            ></button>
+          </div>
+        </ng-template>
+
+        <ng-template pTemplate="right">
+          <button
+            pButton
+            pRipple
+            label="Back to List"
+            icon="pi pi-arrow-left"
+            class="p-button-secondary mr-2"
+            (click)="backToList()"
+            type="button"
+          ></button>
+          <button
+            pButton
+            pRipple
+            label="Export"
+            icon="pi pi-upload"
+            class="p-button-help"
+            (click)="exportData()"
+            [disabled]="!formDataList || formDataList.length === 0"
+            type="button"
+          ></button>
+        </ng-template>
+      </p-toolbar>
+
+      <h5>{{ formName }}</h5>
+      <p>{{ formDescription }}</p>
+
+      <p-table
+        #dt
+        [value]="formDataList"
+        [paginator]="true"
+        [rows]="10"
+        [responsiveLayout]="'scroll'"
+        [selection]="selectedItems"
+        (selectionChange)="selectedItems = $event"
+        dataKey="id"
+      >
+        <ng-template pTemplate="header">
+          <tr>
+            <th style="width: 3rem">
+              <p-tableHeaderCheckbox></p-tableHeaderCheckbox>
+            </th>
+            <th *ngFor="let field of dynamicFields" [pSortableColumn]="getFieldKey(field)">
+              {{ field.label }}
+              <p-sortIcon [field]="getFieldKey(field)"></p-sortIcon>
+            </th>
+            <th style="width: 10rem">Actions</th>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="body" let-data>
+          <tr>
+            <td>
+              <p-tableCheckbox [value]="data"></p-tableCheckbox>
+            </td>
+            <td *ngFor="let field of dynamicFields">
+              <!-- Affichage des images -->
+              <div *ngIf="(field.type === 'image' || field.type === 'file') && data.filePreviews?.[getFieldKey(field)]">
+                <div *ngIf="data.filePreviews[getFieldKey(field)].type === 'image'">
+                  <img 
+                    [src]="data.filePreviews[getFieldKey(field)].url" 
+                    [alt]="field.label"
+                    class="preview-thumbnail"
+                    (click)="showImagePreview(data.filePreviews[getFieldKey(field)].url)"
+                  >
+                </div>
+                <div *ngIf="data.filePreviews[getFieldKey(field)].type === 'file'">
+                  <a 
+                    [href]="data.filePreviews[getFieldKey(field)].url" 
+                    target="_blank"
+                    class="file-link"
+                  >
+                    {{ data.filePreviews[getFieldKey(field)].name }}
+                  </a>
+                </div>
+              </div>
+
+              <!-- Affichage des autres types de champs -->
+              <span *ngIf="field.type !== 'image' && field.type !== 'file'">
+                <span *ngIf="field.type === 'multiselect'">
+                  {{ getMultiOptionLabels(field, data[getFieldKey(field)]) }}
+                </span>
+                <span *ngIf="field.type !== 'multiselect'">
+                  {{ data[getFieldKey(field)] }}
+                </span>
+              </span>
+            </td>
+            <td>
+              <button
+                pButton
+                icon="pi pi-pencil"
+                class="p-button-rounded p-button-success mr-2"
+                (click)="editItem(data)"
+                type="button"
+              ></button>
+              <button
+                pButton
+                icon="pi pi-trash"
+                class="p-button-rounded p-button-danger"
+                (click)="deleteItem(data)"
+                type="button"
+              ></button>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </div>
+
+    <!-- Dialog pour éditer/créer un item -->
+    <p-dialog
+      [(visible)]="formDialog"
+      [style]="{ width: '100vw',heieght: '100vh' }" 
+      [breakpoints]="{'960px': '75vw', '640px': '90vw'}"
+      [modal]="true"
+      header="{{ currentItemId ? 'Edit Entry' : 'New Entry' }}"
+    >
+      <form [formGroup]="dynamicForm" (ngSubmit)="saveItem()">
+        <div class="p-fluid p-formgrid p-grid">
+          <div *ngFor="let field of dynamicFields" class="p-field p-col-12">
+            <label [for]="getFieldKey(field)">{{ field.label }}</label>
+
+            <!-- Champ texte simple -->
+            <input
+              *ngIf="field.type === 'text' || field.type === 'email' || field.type === 'password'"
+              pInputText
+              [id]="getFieldKey(field)"
+              [formControlName]="getFieldKey(field)"
+              [placeholder]="field.placeholder || ''"
+            />
+            <!--radio-->
+            <div *ngIf="field.type === 'radio'" class="p-d-flex p-ai-center">
+              <p-radioButton
+                *ngFor="let opt of field.options"
+                [name]="getFieldKey(field)"
+                [value]="opt.value"
+                [label]="opt.label"
+                [formControlName]="getFieldKey(field)"
+              ></p-radioButton> 
+            </div>
+
+
+            <!-- Champ numérique -->
+            <input
+              *ngIf="field.type === 'number'" 
+              pInputText
+              type="number"
+              [id]="getFieldKey(field)"
+              [formControlName]="getFieldKey(field)"
+            />
+
+            <!-- Date picker -->
+            <p-calendar
+              *ngIf="field.type === 'date'"
+              [formControlName]="getFieldKey(field)"
+              dateFormat="yy-mm-dd"
+              [showIcon]="true"
+            ></p-calendar>
+
+            <!-- Time picker -->
+            <p-calendar
+              *ngIf="field.type === 'time'"
+              [formControlName]="getFieldKey(field)"
+              timeOnly="true"
+              [showIcon]="true"
+            ></p-calendar>
+
+            <!-- Dropdown -->
+            <p-dropdown
+              *ngIf="field.type === 'select'"
+              [options]="field.options"
+              [formControlName]="getFieldKey(field)"
+              optionLabel="label"
+              optionValue="value"
+              [placeholder]="field.placeholder || 'Select...'"
+            ></p-dropdown>
+
+            <!-- MultiSelect -->
+            <p-multiSelect
+              *ngIf="field.type === 'multiselect'"
+              [options]="field.options"
+              [formControlName]="getFieldKey(field)"
+              optionLabel="label"
+              optionValue="value"
+            ></p-multiSelect>
+
+            <!-- Checkbox simple -->
+            <p-checkbox
+              *ngIf="field.type === 'checkbox' && !field.options"
+              [binary]="true"
+              [formControlName]="getFieldKey(field)"
+            ></p-checkbox>
+
+            <!-- Checkbox avec options -->
+            <div *ngIf="field.type === 'checkbox' && field.options" class="p-d-flex p-flex-column">
+              <p-checkbox
+                *ngFor="let opt of field.options"
+                [name]="getFieldKey(field)"
+                [value]="opt.value"
+                [label]="opt.label"
+                [formControlName]="getFieldKey(field)"
+              ></p-checkbox>
+            </div>
+
+            <!-- Textarea -->
+            <textarea
+              *ngIf="field.type === 'textarea'"
+              pInputTextarea
+              [formControlName]="getFieldKey(field)"
+              [rows]="field.rows || 5"
+              [cols]="field.cols || 30"
+            ></textarea>
+
+            <!-- Upload de fichiers -->
+            <div *ngIf="field.type === 'file' || field.type === 'image'">
+              <p-fileUpload 
+              [url]="uploadUrl"
+              (onUpload)="onUpload($event, field)"
+              [multiple]="field.multiple"
+              [accept]="field.accept"
+              [maxFileSize]="10000000">
+            </p-fileUpload>
+
+              <!-- Afficher le fichier existant -->
+              <div *ngIf="currentItem && currentItem[getFieldKey(field)]" class="p-mt-2">
+                <div *ngIf="field.type === 'image'">
+                  <img *ngIf="data.filePreviews?.[getFieldKey(field)]?.url"
+                    [src]="data.filePreviews[getFieldKey(field)].url" 
+                    [alt]="field.label"
+                    class="preview-thumbnail"
+                    (error)="handleImageError($event, data, field)"
+                    (click)="showImagePreview(data.filePreviews[getFieldKey(field)].url)">
+                </div>
+                <div *ngIf="field.type === 'file'" class="p-d-flex p-ai-center">
+                  <i class="pi pi-file p-mr-2"></i>
+                  <span>{{ currentItem[getFieldKey(field)] | filename }}</span>
+                </div>
+                <button
+                  pButton
+                  type="button"
+                  icon="pi pi-times"
+                  class="p-button-text p-button-danger p-mt-1"
+                  (click)="removeFile(field)"
+                  label="Remove"
+                ></button>
+              </div>
+
+              <!-- Afficher le nouveau fichier uploadé -->
+              <div *ngIf="uploadedFiles[getFieldKey(field)]" class="p-mt-2">
+                <div *ngIf="field.type === 'image'">
+                  <img [src]="uploadedFiles[getFieldKey(field)]" class="preview-thumbnail">
+                </div>
+                <div *ngIf="field.type === 'file'" class="p-d-flex p-ai-center">
+                  <i class="pi pi-file p-mr-2"></i>
+                  <span>{{ uploadedFiles[getFieldKey(field)] | filename }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Messages d'erreur -->
+            <small class="p-error" *ngIf="isInvalid(getFieldKey(field))">
+              <span *ngIf="dynamicForm.get(getFieldKey(field))?.errors?.['required']">This field is required.</span>
+              <span *ngIf="dynamicForm.get(getFieldKey(field))?.errors?.['minlength']">
+                Minimum {{ field.validation?.minLength }} characters.
+              </span>
+              <span *ngIf="dynamicForm.get(getFieldKey(field))?.errors?.['maxlength']">
+                Maximum {{ field.validation?.maxLength }} characters.
+              </span>
+            </small>
+          </div>
+        </div>
+
+        <div class="p-d-flex p-jc-end p-mt-3">
+          <button
+            pButton
+            type="button"
+            label="Cancel"
+            icon="pi pi-times"
+            class="p-button-text"
+            (click)="hideDialog()"
+          ></button>
+          <button
+            pButton
+            type="submit"
+            label="Save"
+            icon="pi pi-check"
+            class="p-button-success"
+            [disabled]="dynamicForm.invalid"
+          ></button>
+        </div>
+      </form>
+    </p-dialog>
+
+    <!-- Preview d'image en grand -->
+    <p-dialog
+      [(visible)]="imagePreviewVisible"
+      [modal]="true"
+      [style]="{ width: '100vw' }"
+      [dismissableMask]="true"
+      (onHide)="imagePreviewVisible = false"
+    >
+      <img [src]="previewImageUrl" style="width: 100%; height: auto;" />
+    </p-dialog>
+  </div>
+</div>
+
+<style>
+.preview-thumbnail {
+  max-width: 100px;
+  max-height: 100px;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.preview-thumbnail:hover {
+  transform: scale(1.05);
+}
+
+.file-link {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+.file-link:hover {
+  text-decoration: underline;
+}
+</style>

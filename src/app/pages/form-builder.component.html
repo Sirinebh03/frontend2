@@ -52,11 +52,12 @@
   <div class="form-builder-container">
     <div class="elements-panel">
       <h3>Éléments disponibles</h3>
-      <div cdkDropList id="elementsList" 
+      <div cdkDropList #availableElements="cdkDropList" 
            [cdkDropListData]="elements"
-           [cdkDropListConnectedTo]="['formArea']"
-           (cdkDropListDropped)="drop($event)">
-        <div *ngFor="let element of elements" class="element" cdkDrag>
+           [cdkDropListConnectedTo]="[formFields]"
+           class="elements-list"
+           (cdkDropListDropped)="dropFromAvailable($event)">
+        <div *ngFor="let element of elements" cdkDrag class="element">
           {{ element.label }}
         </div>
       </div>
@@ -64,16 +65,19 @@
 
     <div class="form-preview">
       <h3>Prévisualisation du formulaire</h3>
-      <div cdkDropList id="formArea" 
+      <div cdkDropList #formFields="cdkDropList" 
            [cdkDropListData]="formElements"
-           [cdkDropListConnectedTo]="['elementsList']"
-           (cdkDropListDropped)="drop($event)">
+           [cdkDropListConnectedTo]="[availableElements]"
+           class="form-fields-container"
+           (cdkDropListDropped)="dropInForm($event)">
         
         <div *ngIf="!formElements.length" class="empty-form">
           Glissez-déposez des éléments ici pour commencer
         </div>
 
-        <div *ngFor="let field of formElements; let i = index" class="form-field">
+        <div *ngFor="let field of formElements; let i = index" 
+             cdkDrag
+             class="form-field">
           <div class="field-header">
             <label>{{ field.label }} <span *ngIf="field.required" class="required">*</span></label>
             <div class="field-actions">
@@ -97,9 +101,8 @@
             <input *ngSwitchCase="'password'" type="password" 
                    [placeholder]="field.placeholder || 'Mot de passe...'" />
             
-              <input *ngSwitchCase="'time'" type="time" />
             <!-- Time Input -->
-       
+            <input *ngSwitchCase="'time'" type="time" />
 
             <!-- Date Input -->
             <input *ngSwitchCase="'date'" type="date" />
@@ -333,5 +336,4 @@
         <button type="button" (click)="closeModal()" class="cancel-btn">Annuler</button>
       </div>
     </form>
-
-</p-dialog> 
+</p-dialog>

@@ -1,6 +1,6 @@
 import {NgModule} from '@angular/core';
 import {FormsModule} from '@angular/forms';
-import {HttpClientModule} from '@angular/common/http';
+import {HTTP_INTERCEPTORS, HttpClientModule} from '@angular/common/http';
 import {BrowserModule} from '@angular/platform-browser';
 import {BrowserAnimationsModule} from '@angular/platform-browser/animations';
 import {HashLocationStrategy, LocationStrategy} from '@angular/common';
@@ -101,7 +101,6 @@ import {TooltipModule} from 'primeng/tooltip';
 import {TreeModule} from 'primeng/tree';
 import {TreeTableModule} from 'primeng/treetable';
 import {VirtualScrollerModule} from 'primeng/virtualscroller';
-
 // Application Components
 import {AppComponent} from './app.component';
 import {AppRoutingModule} from './app-routing.module';
@@ -124,7 +123,11 @@ import {AppFooterComponent} from './app.footer.component';
 import { FormsListComponent } from './pages/forms-list.component';
 import { FormBuilderComponent } from './pages/form-builder.component';
 import { FormDetailComponent } from './pages/form-detail.component';
+import { FormComponent } from './pages/form.component';
 import { FilenamePipe } from './pages/filename.pipe'; // Ajustez le chemin
+import { KeycloakAngularModule, KeycloakBearerInterceptor, KeycloakService } from 'keycloak-angular';
+import { KeycloakConfig } from 'keycloak-js';
+
 
 
 
@@ -161,7 +164,9 @@ import {PhotoService} from './demo/service/photoservice';
 import {ProductService} from './demo/service/productservice';
 import {IconService} from './demo/service/iconservice';
 import {ConfigService} from './demo/service/app.config.service';
+import { APP_INITIALIZER } from '@angular/core';
 
+import keycloakConfig from './keycloak.config'; // Importer la configuration de Keycloak
 // Application services
 import {BreadcrumbService} from './breadcrumb.service';
 import {MenuService} from './app.menu.service';
@@ -170,7 +175,11 @@ import {AppCodeModule} from './blocks/app-code/app.code.component';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
-
+import { RegisterComponent } from './pages/register.component';
+import { FormPermissionsComponent } from './pages/form-permissions.component';
+import { AdminComponent } from './pages/admin.component';
+import { AuthGuard } from './auth.guard';
+import { UserFormsComponent } from './user-forms/user-forms.component';
 
 FullCalendarModule.registerPlugins([
     dayGridPlugin,
@@ -178,6 +187,17 @@ FullCalendarModule.registerPlugins([
     interactionPlugin
 ]);
 
+function initializeKeycloak(keycloak: KeycloakService) {
+  return () => keycloak.init({
+   config: keycloakConfig,
+    initOptions: {
+      onLoad: 'login-required', // Changez de 'check-sso' à 'login-required'
+    redirectUri: window.location.origin + '/#/?',
+    },
+    enableBearerInterceptor: true,
+    bearerExcludedUrls: ['/assets']
+  });
+}
 @NgModule({
     imports: [
         BrowserModule,
@@ -275,7 +295,15 @@ FullCalendarModule.registerPlugins([
         MatNativeDateModule,
         MatInputModule,
         MatFormFieldModule,
-        ReactiveFormsModule 
+        ReactiveFormsModule ,
+        KeycloakAngularModule,
+        TableModule ,
+        // Ajoutez d'autres modules Angular Material ici si nécessaire
+
+
+
+      
+        AppCodeModule
     ],
     declarations: [
         FilenamePipe,
@@ -321,13 +349,38 @@ FullCalendarModule.registerPlugins([
         FormBuilderComponent,
         FormsListComponent,
         FormDetailComponent,
+        RegisterComponent,
+        FormComponent,
+        FormPermissionsComponent,
+        AdminComponent,
+        UserFormsComponent
+
        
     ],
     providers: [
-        {provide: LocationStrategy, useClass: HashLocationStrategy},
-        CountryService, CustomerService, EventService, IconService, NodeService,
-        PhotoService, ProductService, MenuService, BreadcrumbService, ConfigService,MessageService
-    ],
+        { provide: LocationStrategy, useClass: HashLocationStrategy }, {
+            provide: APP_INITIALIZER,
+           useFactory: initializeKeycloak,
+            multi: true,
+            deps: [KeycloakService]
+          },
+          {provide:HTTP_INTERCEPTORS, useClass:KeycloakBearerInterceptor,multi:true},
+        CountryService,
+        CustomerService,
+        EventService,
+        IconService,
+        NodeService,
+        PhotoService,
+        ProductService,
+        MenuService,
+        BreadcrumbService,
+        ConfigService,
+        MessageService ,
+        KeycloakService,
+       
+      ],
+
+      
     bootstrap: [AppComponent]
 })
 export class AppModule {

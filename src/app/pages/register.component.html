@@ -1,0 +1,173 @@
+<div class="register-container p-4">
+  <div class="card p-4">
+    <h2 class="text-center mb-4">Créer un compte</h2>
+
+    <!-- Barre de progression -->
+    <p-steps [model]="[
+      { label: 'Informations personnelles' },
+      { label: 'Compte' }
+    ]" [activeIndex]="currentStep - 1"></p-steps>
+
+    <form [formGroup]="registerForm" (ngSubmit)="onSubmit()" class="mt-4">
+      <!-- Étape 1 : Informations personnelles -->
+      <div *ngIf="currentStep === 1" class="step-content">
+        <div formGroupName="personalInfo" class="grid">
+          <div class="col-12 md:col-6 field">
+            <label for="firstName">Prénom*</label>
+            <input
+              pInputText
+              id="firstName"
+              formControlName="firstName"
+              [ngClass]="{
+                'p-invalid': personalInfo.get('firstName')?.invalid &&
+                  personalInfo.get('firstName')?.touched
+              }"
+            />
+            <small
+              *ngIf="personalInfo.get('firstName')?.invalid &&
+                personalInfo.get('firstName')?.touched"
+              class="p-error"
+            >
+              Prénom requis (min. 2 caractères)
+            </small>
+          </div>
+
+          <div class="col-12 md:col-6 field">
+            <label for="lastName">Nom*</label>
+            <input
+              pInputText
+              id="lastName"
+              formControlName="lastName"
+              [ngClass]="{
+                'p-invalid': personalInfo.get('lastName')?.invalid &&
+                  personalInfo.get('lastName')?.touched
+              }"
+            />
+            <small
+              *ngIf="personalInfo.get('lastName')?.invalid &&
+                personalInfo.get('lastName')?.touched"
+              class="p-error"
+            >
+              Nom requis (min. 2 caractères)
+            </small>
+          </div>
+
+          <div class="col-12 field">
+            <label for="email">Email*</label>
+            <input
+              pInputText
+              id="email"
+              formControlName="email"
+              [ngClass]="{
+                'p-invalid': personalInfo.get('email')?.invalid &&
+                  personalInfo.get('email')?.touched
+              }"
+            />
+            <small
+              *ngIf="personalInfo.get('email')?.invalid &&
+                personalInfo.get('email')?.touched"
+              class="p-error"
+            >
+              Email invalide
+            </small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Étape 2 : Informations de compte -->
+      <div *ngIf="currentStep === 2" class="step-content">
+        <div formGroupName="accountInfo" class="grid">
+          <div class="col-12 md:col-6 field">
+            <label for="username">Nom d'utilisateur*</label>
+            <input
+              pInputText
+              id="username"
+              formControlName="username"
+              [ngClass]="{
+                'p-invalid': accountInfo.get('username')?.invalid &&
+                  accountInfo.get('username')?.touched
+              }"
+            />
+            <small
+              *ngIf="accountInfo.get('username')?.invalid &&
+                accountInfo.get('username')?.touched"
+              class="p-error"
+            >
+              Nom d'utilisateur requis (min. 3 caractères)
+            </small>
+          </div>
+
+          <div class="col-12 md:col-6 field">
+            <label for="password">Mot de passe*</label>
+            <input
+              pPassword
+              id="password"
+              formControlName="password"
+              [ngClass]="{
+                'p-invalid': accountInfo.get('password')?.invalid &&
+                  accountInfo.get('password')?.touched
+              }"
+            />
+            <small
+              *ngIf="accountInfo.get('password')?.invalid &&
+                accountInfo.get('password')?.touched"
+              class="p-error"
+            >
+              Mot de passe invalide (min. 8 caractères, 1 majuscule, 1 chiffre)
+            </small>
+          </div>
+
+          <div class="col-12 md:col-6 field">
+            <label for="confirmPassword">Confirmer le mot de passe*</label>
+            <input
+              pPassword
+              id="confirmPassword"
+              formControlName="confirmPassword"
+              [ngClass]="{
+                'p-invalid': accountInfo.get('confirmPassword')?.invalid &&
+                  accountInfo.get('confirmPassword')?.touched
+              }"
+            />
+            <small
+              *ngIf="accountInfo.get('confirmPassword')?.invalid &&
+                accountInfo.get('confirmPassword')?.touched"
+              class="p-error"
+            >
+              Les mots de passe doivent correspondre
+            </small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Boutons de navigation -->
+      <div class="mt-4">
+        <button
+          type="button"
+          pButton
+          label="Précédent"
+          icon="pi pi-arrow-left"
+          class="p-button-secondary"
+          (click)="prevStep()"
+          *ngIf="currentStep > 1"
+        ></button>
+        <button
+          type="button"
+          pButton
+          label="Suivant"
+          icon="pi pi-arrow-right"
+          class="p-button-primary"
+          (click)="nextStep()"
+          *ngIf="currentStep < 2"
+        ></button>
+        <button
+          type="submit"
+          pButton
+          label="Créer un compte"
+          icon="pi pi-check"
+          class="p-button-success"
+          *ngIf="currentStep === 2"
+        ></button>
+      </div>
+    </form>
+  </div>
+</div>

@@ -1,0 +1,40 @@
+<div class="container mt-4">
+  <h2 *ngIf="userInfo">Formulaires remplis par {{ userInfo.username }}</h2>
+  
+  <div *ngIf="loading" class="text-center">
+    <div class="spinner-border" role="status">
+      <span class="sr-only">Chargement...</span>
+    </div>
+  </div>
+
+  <div *ngIf="!loading && userForms.length === 0" class="alert alert-info">
+    Cet utilisateur n'a rempli aucun formulaire.
+  </div>
+
+  <div *ngIf="!loading && userForms.length > 0" class="table-responsive">
+    <table class="table table-bordered table-hover">
+      <thead class="thead-dark">
+        <tr>
+          <th>Nom du formulaire</th>
+          <th>Date de soumission</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let form of userForms">
+          <td>{{ form.name }}</td>
+          <td>{{ form.submittedAt | date:'medium' }}</td>
+          <td>
+            <button class="btn btn-primary btn-sm" (click)="viewFormDetails(form.id)">
+              Voir détails
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <button class="btn btn-secondary mt-3" routerLink="/admin">
+    Retour à la liste des utilisateurs
+  </button>
+</div>

@@ -1,0 +1,52 @@
+<div class="card">
+  <h5>User Role Management</h5>
+  
+  <div class="grid">
+    <div class="col-12 md:col-4">
+      <p-card header="Users">
+        <p-listbox 
+          [options]="users" 
+          [(ngModel)]="selectedUser" 
+          (onChange)="onUserSelect($event.value)"
+          optionLabel="username"
+          [style]="{width: '100%'}"
+          [listStyle]="{maxHeight: '400px'}">
+          <ng-template let-user pTemplate="item">
+            <div class="flex align-items-center">
+              <span>{{user.username}} ({{user.email}})</span>
+            </div>
+          </ng-template>
+        </p-listbox>
+      </p-card>
+    </div>
+    
+    <div class="col-12 md:col-8">
+      <p-card [header]="selectedUser ? 'Roles for ' + selectedUser.username : 'Select a user'">
+        <div *ngIf="selectedUser">
+          <p-table [value]="roles" [loading]="loading">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Role Name</th>
+                <th>Description</th>
+                <th>Assigned</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-role>
+              <tr>
+                <td>{{role.name}}</td>
+                <td>{{role.description || '-'}}</td>
+                <td>
+                <p-checkbox 
+  [binary]="true" 
+  [ngModel]="isRoleAssigned(role)"
+  (onChange)="toggleRole(role)">
+</p-checkbox>
+                </td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </div>
+      </p-card>
+    </div>
+  </div>
+</div>
