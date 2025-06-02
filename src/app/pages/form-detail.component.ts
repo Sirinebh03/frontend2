@@ -18,6 +18,13 @@ interface FieldOption {
 
 interface FormEntry {
   id: number;
+    user_id?: string;
+  user_info?: {
+    username?: string;
+    email?: string;
+    firstName?: string;
+    lastName?: string;
+  };
   [key: string]: any;
   filePreviews?: {
     [fieldName: string]: {
@@ -53,8 +60,11 @@ interface DynamicField {
 }
 
 interface FormResponse {
-  entries: any[];
   form_data: DynamicField[];
+  entries: {
+    data: any[];
+    current_page: number;
+  };
 }
 
 @Component({
@@ -171,52 +181,55 @@ handleImageError(event: any, item: any, field: DynamicField): void {
     });
   }
 
-  loadData(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (!this.formId) {
-        reject('No form ID');
-        return;
-      }
+loadData(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (!this.formId) {
+      reject('No form ID');
+      return;
+    }
 
-      this.isLoading = true;
-      
-      this.formService.getFormDataWithEntries(this.formId).subscribe({
-        next: (res: FormResponse) => {
-          this.formDataList = (res.entries || []).map(entry => {
-            const processedEntry: any = { ...entry };
+    this.isLoading = true;
+    
+    this.formService.getFormDataWithEntries(this.formId).subscribe({
+      next: (res: FormResponse) => {
+        // Correction ici: accédez à res.entries.data au lieu de res.entries
+        const entries = Array.isArray(res.entries?.data) ? res.entries.data : [];
+        
+        this.formDataList = entries.map(entry => {
+          const processedEntry: any = { ...entry };
 
-            (res.form_data || []).forEach(field => {
-              const fieldName = field.name || this.formService.slugify(field.label);
+          (res.form_data || []).forEach(field => {
+            const fieldName = field.name || this.formService.slugify(field.label);
+            
+            if ((field.type === 'file' || field.type === 'image') && entry[fieldName]) {
+              processedEntry.filePreviews = processedEntry.filePreviews || {};
               
-              if ((field.type === 'file' || field.type === 'image') && entry[fieldName]) {
-                processedEntry.filePreviews = processedEntry.filePreviews || {};
-                
-                processedEntry.filePreviews[fieldName] = {
-                  url: this.formService.getFormSpecificFileUrl(this.formId, entry[fieldName]),
-                  type: field.type,
-                  name: entry[fieldName].split('/').pop(),
-                  extension: entry[fieldName].split('.').pop()?.toLowerCase()
-                };
-              }
-            });
-
-            return processedEntry;
+              processedEntry.filePreviews[fieldName] = {
+                url: this.formService.getFormSpecificFileUrl(this.formId, entry[fieldName]),
+                type: field.type,
+                name: entry[fieldName].split('/').pop(),
+                extension: entry[fieldName].split('.').pop()?.toLowerCase()
+              };
+            }
           });
 
-          this.dynamicFields = this.processFormFields(res.form_data || []);
-          this.buildForm();
-          this.loadFormMetadata();
-          this.isLoading = false;
-          resolve();
-        },
-        error: (err) => {
-          this.handleError('Erreur lors du chargement des données', err);
-          this.isLoading = false;
-          reject(err);
-        }
-      });
+          return processedEntry;
+        });
+
+        this.dynamicFields = this.processFormFields(res.form_data || []);
+        this.buildForm();
+        this.loadFormMetadata();
+        this.isLoading = false;
+        resolve();
+      },
+      error: (err) => {
+        this.handleError('Erreur lors du chargement des données', err);
+        this.isLoading = false;
+        reject(err);
+      }
     });
-  }
+  });
+}
 
   private loadFormMetadata(): void {
     this.formService.getFormMetadata(this.formId).subscribe({

@@ -6,8 +6,7 @@
       <p-toolbar class="mb-4">
         <ng-template pTemplate="left">
           <div class="my-2">
-            <button pButton pRipple label="New" icon="pi pi-plus" class="p-button-success mr-2" (click)="openNew()"
-              type="button"></button>
+
             <button pButton pRipple label="Delete" icon="pi pi-trash" class="p-button-danger"
               (click)="deleteSelectedItems()" [disabled]="!selectedItems?.length" type="button"></button>
           </div>
@@ -35,7 +34,8 @@
               {{ field.label }}
               <p-sortIcon [field]="getFieldKey(field)"></p-sortIcon>
             </th>
-            <th style="width: 10rem">Actions</th>
+            <th>username</th>
+
           </tr>
         </ng-template>
 
@@ -69,11 +69,17 @@
               </span>
             </td>
             <td>
-              <button pButton icon="pi pi-pencil" class="p-button-rounded p-button-success mr-2"
-                (click)="editItem(data)" type="button"></button>
-              <button pButton icon="pi pi-trash" class="p-button-rounded p-button-danger" (click)="deleteItem(data)"
-                type="button"></button>
-            </td>
+      <div *ngIf="data.user_info">
+        <strong>{{ data.user_info.firstName }} {{ data.user_info.lastName }}</strong><br>
+        {{ data.user_info.username }}<br>
+        {{ data.user_info.email }}
+      </div>
+      <div *ngIf="!data.user_info && data.user_id">
+        Utilisateur #{{ data.user_id }}
+      </div>
+    </td>
+
+            
           </tr>
         </ng-template>
       </p-table>

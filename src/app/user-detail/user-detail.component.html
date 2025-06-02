@@ -1,58 +1,107 @@
-<div class="container mt-4">
-  <div *ngIf="loading" class="text-center">
-    <div class="spinner-border" role="status">
-      <span class="sr-only">Chargement...</span>
+<div class="card p-4">
+  <p-toast></p-toast>
+
+  <!-- Toolbar -->
+  <div class="p-toolbar mb-4">
+    <div class="p-toolbar-group-left">
+      <button pButton 
+              type="button" 
+              icon="pi pi-arrow-left" 
+              label="Retour" 
+              class="p-button-outlined p-button-secondary" 
+              (click)="goBack()"></button>
+    </div>
+    <div class="p-toolbar-group-right">
+      <h3 class="m-0 text-primary">{{ formName }}</h3>
     </div>
   </div>
 
-  <div *ngIf="!loading && userInfo && formDetails">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-      <h2>
-        <i class="bi bi-person-circle me-2"></i>
-        {{ userInfo.username }} - {{ formDetails.name }}
-      </h2>
-      <button class="btn btn-outline-secondary" (click)="goBack()">
-        <i class="bi bi-arrow-left"></i> Retour
-      </button>
-    </div>
+  <!-- Description -->
+  <p class="mb-4 text-muted">{{ formDescription }}</p>
 
-    <div class="card shadow-sm">
-      <div class="card-header bg-light">
-        <h5 class="mb-0">Détails du formulaire</h5>
-      </div>
-      <div class="card-body">
-        <div class="row mb-3">
-          <div class="col-md-6">
-            <strong>Date de soumission:</strong>
-            {{ formDetails.submittedAt | date:'medium' }}
-          </div>
-          <div class="col-md-6">
-            <strong>Statut:</strong>
-            <span class="badge bg-success">Complété</span>
-          </div>
-        </div>
+  <!-- Loading Spinner -->
+  <div *ngIf="isLoading" class="p-d-flex p-jc-center p-ai-center" style="height: 200px;">
+    <p-progressSpinner></p-progressSpinner>
+  </div>
 
-        <h5 class="mt-4 mb-3">Réponses:</h5>
-        <div class="list-group">
-          <div *ngFor="let response of formDetails.responses" class="list-group-item">
-            <div class="d-flex w-100 justify-content-between">
-              <h6 class="mb-2">{{ response.question }}</h6>
-              <small class="text-muted">{{ response.type }}</small>
-            </div>
-            <p class="mb-1" *ngIf="!Array.isArray(response.answer)">{{ response.answer }}</p>
-            <div *ngIf="Array.isArray(response.answer)">
-              <ul>
-                <li *ngFor="let item of response.answer">{{ item }}</li>
-              </ul>
-            </div>
-          </div>
-        </div>
+  <!-- Form Data Table -->
+  <div *ngIf="!isLoading && formData" class="p-grid">
+    <div class="p-col-12">
+      <div class="card">
+        <p-table [value]="[formData]" class="p-datatable-sm p-datatable-striped" responsiveLayout="scroll">
+          <ng-template pTemplate="header">
+            <tr>
+              <th *ngFor="let field of dynamicFields" class="text-capitalize">
+                {{ field.label }}
+              </th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-data>
+            <tr>
+              <td *ngFor="let field of dynamicFields">
+                <!-- Image / File -->
+                <ng-container *ngIf="(field.type === 'image' || field.type === 'file') && data.filePreviews?.[field.name]">
+                  <div *ngIf="data.filePreviews[field.name].type === 'image'" class="p-mb-2">
+                    <img [src]="data.filePreviews[field.name].url"
+                         class="preview-thumbnail shadow-1"
+                         (click)="showImagePreview(data.filePreviews[field.name].url)">
+                  </div>
+                  <div *ngIf="data.filePreviews[field.name].type === 'file'">
+                    <a [href]="data.filePreviews[field.name].url" target="_blank" class="file-link text-primary">
+                      <i class="pi pi-file" style="margin-right: .5rem;"></i>
+                      {{ data.filePreviews[field.name].name }}
+                    </a>
+                  </div>
+                </ng-container>
+
+                <!-- Autres types -->
+                <span *ngIf="field.type !== 'image' && field.type !== 'file'">
+                  {{ data[field.name] || '-' }}
+                </span>
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
       </div>
     </div>
   </div>
 
-  <div *ngIf="!loading && (!formDetails || !userInfo)" class="alert alert-danger mt-3">
-    <i class="bi bi-exclamation-triangle-fill"></i>
-    Impossible de charger les détails du formulaire.
+  <!-- Aucune donnée -->
+  <div *ngIf="!isLoading && !formData" class="p-d-flex p-jc-center mt-4">
+    <p-message severity="warn" text="Aucune donnée trouvée"></p-message>
   </div>
 </div>
+
+<!-- Styles personnalisés -->
+<style>
+  .preview-thumbnail {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+  }
+
+  .preview-thumbnail:hover {
+    transform: scale(1.1);
+  }
+
+  .file-link {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+  }
+
+  .text-capitalize {
+    text-transform: capitalize;
+  }
+
+  .text-primary {
+    color: var(--primary-color);
+  }
+
+  .text-muted {
+    color: #6c757d;
+  }
+</style>

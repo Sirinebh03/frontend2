@@ -1,40 +1,59 @@
-<div class="container mt-4">
-  <h2 *ngIf="userInfo">Formulaires remplis par {{ userInfo.username }}</h2>
-  
-  <div *ngIf="loading" class="text-center">
-    <div class="spinner-border" role="status">
-      <span class="sr-only">Chargement...</span>
-    </div>
+<div class="card p-4 mt-4">
+  <h2 *ngIf="userInfo" class="text-primary mb-3">
+    Formulaires remplis par {{ userInfo.username }}
+  </h2>
+
+  <!-- Chargement -->
+  <div *ngIf="loading" class="p-d-flex p-jc-center p-ai-center" style="height: 150px;">
+    <p-progressSpinner></p-progressSpinner>
   </div>
 
-  <div *ngIf="!loading && userForms.length === 0" class="alert alert-info">
-    Cet utilisateur n'a rempli aucun formulaire.
+  <!-- Aucun formulaire -->
+  <div *ngIf="!loading && userForms.length === 0" class="p-mt-3">
+    <p-message severity="info" text="Cet utilisateur n'a rempli aucun formulaire."></p-message>
   </div>
 
-  <div *ngIf="!loading && userForms.length > 0" class="table-responsive">
-    <table class="table table-bordered table-hover">
-      <thead class="thead-dark">
+  <!-- Liste des formulaires -->
+  <div *ngIf="!loading && userForms.length > 0">
+    <p-table [value]="userForms" responsiveLayout="scroll" class="p-datatable-sm p-mb-3">
+      <ng-template pTemplate="header">
         <tr>
           <th>Nom du formulaire</th>
           <th>Date de soumission</th>
           <th>Actions</th>
         </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let form of userForms">
+      </ng-template>
+      <ng-template pTemplate="body" let-form>
+        <tr>
           <td>{{ form.name }}</td>
-          <td>{{ form.submittedAt | date:'medium' }}</td>
+          <td>{{ form.created_at | date: 'medium' }}</td>
           <td>
-            <button class="btn btn-primary btn-sm" (click)="viewFormDetails(form.id)">
-              Voir détails
+            <button pButton 
+                    type="button" 
+                    icon="pi pi-eye" 
+                    label="Voir détails" 
+                    class="p-button-sm p-button-info" 
+                    (click)="viewFormDetails(form.id)">
             </button>
           </td>
         </tr>
-      </tbody>
-    </table>
+      </ng-template>
+    </p-table>
   </div>
 
-  <button class="btn btn-secondary mt-3" routerLink="/admin">
-    Retour à la liste des utilisateurs
+  <!-- Bouton de retour -->
+  <button pButton 
+          type="button" 
+          icon="pi pi-arrow-left" 
+          label="Retour à la liste des utilisateurs" 
+          class="p-button-secondary mt-3" 
+          routerLink="/admin">
   </button>
 </div>
+
+<!-- Styles personnalisés -->
+<style>
+  .text-primary {
+    color: var(--primary-color);
+  }
+</style>

@@ -129,7 +129,7 @@ import { KeycloakAngularModule, KeycloakBearerInterceptor, KeycloakService } fro
 import { KeycloakConfig } from 'keycloak-js';
 
 
-
+import { CommonModule } from '@angular/common';
 
 // Demo pages
 import {DashboardDemoComponent} from './demo/view/dashboarddemo.component';
@@ -165,6 +165,8 @@ import {ProductService} from './demo/service/productservice';
 import {IconService} from './demo/service/iconservice';
 import {ConfigService} from './demo/service/app.config.service';
 import { APP_INITIALIZER } from '@angular/core';
+import { MatSnackBarModule } from '@angular/material/snack-bar';
+import { DatePipe } from '@angular/common';
 
 import keycloakConfig from './keycloak.config'; // Importer la configuration de Keycloak
 // Application services
@@ -180,6 +182,7 @@ import { FormPermissionsComponent } from './pages/form-permissions.component';
 import { AdminComponent } from './pages/admin.component';
 import { AuthGuard } from './auth.guard';
 import { UserFormsComponent } from './user-forms/user-forms.component';
+import { UserDetailComponent } from './user-detail/user-detail.component';
 
 FullCalendarModule.registerPlugins([
     dayGridPlugin,
@@ -298,6 +301,11 @@ function initializeKeycloak(keycloak: KeycloakService) {
         ReactiveFormsModule ,
         KeycloakAngularModule,
         TableModule ,
+        CommonModule,
+
+
+        MatSnackBarModule, // Importer le module MatSnackBar
+
         // Ajoutez d'autres modules Angular Material ici si nécessaire
 
 
@@ -353,7 +361,8 @@ function initializeKeycloak(keycloak: KeycloakService) {
         FormComponent,
         FormPermissionsComponent,
         AdminComponent,
-        UserFormsComponent
+        UserFormsComponent,
+        UserDetailComponent
 
        
     ],
@@ -365,6 +374,7 @@ function initializeKeycloak(keycloak: KeycloakService) {
             deps: [KeycloakService]
           },
           {provide:HTTP_INTERCEPTORS, useClass:KeycloakBearerInterceptor,multi:true},
+
         CountryService,
         CustomerService,
         EventService,
@@ -377,6 +387,7 @@ function initializeKeycloak(keycloak: KeycloakService) {
         ConfigService,
         MessageService ,
         KeycloakService,
+        DatePipe, // Ajouter DatePipe ici pour l'utiliser dans les composants
        
       ],
 

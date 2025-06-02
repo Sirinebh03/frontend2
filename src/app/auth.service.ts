@@ -49,12 +49,12 @@ getToken(): Promise<string | null> {
 
 // Ajoutez ces méthodes à votre AuthService existant
 
-async hasFormAccessForUser(userId: any, formName: string): Promise<boolean> {
+async hasFormAccessForUser( formName: string,userId: any): Promise<boolean> {
   const roleName = `form_${this.slugify(formName)}`;
   const token = await this.getToken();
   
   const response = await this.http.get<{hasRole: boolean}>(
-    `${environment.apiUrl}/auth/has-role`,
+    `${environment.apiUrl}/api/forms/auth/has-role`,
     { 
       params: { userId, roleName },
       headers: { Authorization: `Bearer ${token}` }
@@ -70,7 +70,7 @@ async hasFormAccessForUser(userId: any, formName: string): Promise<boolean> {
 
   async getUserById(userId: string): Promise<any> {
     const token = await this.getToken();
-    return this.http.get<any>(`${environment.apiUrl}/keycloak/users/${userId}`, {
+    return this.http.get<any>(`${environment.apiUrl}/api/keycloak/users/${userId}`, {
       headers: { Authorization: `Bearer ${token}` }
     }).toPromise();
   }

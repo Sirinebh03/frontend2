@@ -2,6 +2,10 @@ import { Component } from '@angular/core';
 import { AppMainComponent } from './app.main.component';
 import { KeycloakService } from 'keycloak-angular';
 import { KeycloakProfile } from 'keycloak-js';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../environments/environment';
+import { catchError, of } from 'rxjs';
+
 export interface ExtendedKeycloakProfile extends KeycloakProfile {
   attributes?: {
     picture?: string[];
@@ -157,7 +161,6 @@ export interface ExtendedKeycloakProfile extends KeycloakProfile {
                                     </div>
                                     <i class="pi pi-angle-right"></i>
                                 </li>
-                                <!-- ... autres messages ... -->
                             </ul>
                         </li>
 
@@ -182,36 +185,26 @@ export interface ExtendedKeycloakProfile extends KeycloakProfile {
                                         <span>{{ userProfile?.email || ' ' }}</span>
                                     </div>
                                 </li>
-								<li>
-									<i class="pi pi-list icon icon-1"></i>
-									<div class="menu-text">
-										<p>Tasks</p>
-										<span>3 open issues</span>
-									</div>
-									<i class="pi pi-angle-right"></i>
-								</li>
-								<li>
-									<i class="pi pi-shopping-cart icon icon-2"></i>
-									<div class="menu-text">
-										<p>Payments</p>
-										<span>24 new</span>
-									</div>
-									<i class="pi pi-angle-right"></i>
-								</li>
-								<li>
-									<i class="pi pi-users icon icon-3"></i>
-									<div class="menu-text">
-										<p>Clients</p>
-										<span>+80%</span>
-									</div>
-									<i class="pi pi-angle-right"></i>
-								</li>
+								
+								
+								    <li #users class="topbar-item" [ngClass]="{'active-topmenuitem': appMain.activeTopbarItem === users}">
+                            <a href="#" (click)="appMain.onTopbarItemClick($event, users)">
+                                <i class="topbar-icon pi pi-users"></i>
+                                <span class="topbar-badge" *ngIf="userCount > 0">{{userCount}}</span>
+                            </a>
+                            <ul class="fadeInDown" (click)="appMain.topbarItemClick = true">
+                                <li class="layout-submenu-header">
+                                    <h1>Utilisateurs</h1>
+                                    <span>Total: {{userCount}} utilisateurs</span>
+                                </li>
+                                
+                            </ul>
+                        </li>
                                 <!-- [4] Bouton de déconnexion ajouté -->
                                 <li class="layout-submenu-footer">
                                     <button class="signout-button" (click)="logout()">
                                         <i class="pi pi-sign-out"></i> Déconnexion
                                     </button>
-									<button class="buy-mirage-button">Buy Mirage</button>
                                 </li>
                             </ul>
                         </li>
@@ -228,15 +221,17 @@ export interface ExtendedKeycloakProfile extends KeycloakProfile {
     `
 })
 export class AppTopBarComponent {
-
-    activeItem: number;
+  activeItem: number;
     userProfile: ExtendedKeycloakProfile | null = null;
+    userCount: number = 0;
 
     constructor(
         public appMain: AppMainComponent,
-        private keycloakService: KeycloakService
+        private keycloakService: KeycloakService,
+        private http: HttpClient
     ) {
         this.loadUserProfile();
+        this.loadUserCount();
     }
 
     async loadUserProfile() {
@@ -248,6 +243,30 @@ export class AppTopBarComponent {
             }
         }
     }
+async loadUserCount() {
+  try {
+    const token = await this.keycloakService.getToken();
+    const response = await this.http.get<any>(`${environment.apiUrl}/api/keycloak/users/count`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    }).pipe(
+      catchError(error => {
+        console.error('Error fetching user count:', error);
+        return of({ count: 0 }); // Valeur par défaut en cas d'erreur
+      })
+    ).toPromise();
+
+    this.userCount = response?.count || 0;
+  } catch (error) {
+    console.error('Error in loadUserCount:', error);
+    this.userCount = 0;
+  }
+}
+
+    // Méthode pour rafraîchir le compteur
+    async refreshUserCount() {
+        await this.loadUserCount();
+    }
+
 
     getProfileImage(): string {
         return this.userProfile?.attributes?.picture?.[0] 

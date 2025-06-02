@@ -1,11 +1,8 @@
 import { Component, OnInit } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { FormService } from '../form.service';
 import { AuthService } from '../auth.service';
-import { Observable } from 'rxjs';
-import { map, catchError } from 'rxjs/operators';
-import { of } from 'rxjs';
-import { Router } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-user-forms',
@@ -13,7 +10,7 @@ import { Router } from '@angular/router';
   styleUrls: ['./user-forms.component.scss']
 })
 export class UserFormsComponent implements OnInit {
-  userId: string;
+  userId: string = '';
   userForms: any[] = [];
   loading = false;
   userInfo: any;
@@ -23,15 +20,19 @@ export class UserFormsComponent implements OnInit {
     private formService: FormService,
     private authService: AuthService,
     private router: Router
-  ) { }
+  ) {}
 
   ngOnInit(): void {
-    this.userId = this.route.snapshot.paramMap.get('userId');
-    this.loadUserInfo();
-    this.loadUserForms();
+    const param = this.route.snapshot.paramMap.get('userId');
+    if (param) {
+      this.userId = param;
+      this.loadUserInfo();
+      this.loadUserForms();
+    } else {
+      console.error('userId is missing from route parameters.');
+    }
   }
-
-  async loadUserInfo(): Promise<void> {
+ async loadUserInfo(): Promise<void> {
     try {
       this.userInfo = await this.authService.getUserById(this.userId);
     } catch (error) {
@@ -40,11 +41,12 @@ export class UserFormsComponent implements OnInit {
     }
   }
 
-  async loadUserForms() {
+async loadUserForms() {
   this.loading = true;
   try {
-    const forms = await this.formService.getForms().toPromise();
-    this.userForms = forms || []; 
+    const forms = await this.formService.getuserforms(this.userId).toPromise();
+    console.log('Réponse forms:', forms);
+    this.userForms = forms.forms || [];
   } catch (error) {
     console.error('Error loading user forms', error);
     this.userForms = [];
@@ -52,9 +54,14 @@ export class UserFormsComponent implements OnInit {
     this.loading = false;
   }
 }
-viewFormDetails(formId: string): void {
-  const userId = this.route.snapshot.paramMap.get('id');
-  this.router.navigate(['/admin/users', userId, 'forms', formId]);
-}
 
+
+
+  viewFormDetails(formId: string): void {
+    if (!this.userId || !formId) {
+      console.error('Missing userId or formId');
+      return;
+    }
+    this.router.navigate(['/admin/users', this.userId, 'forms', formId]);
+  }
 }

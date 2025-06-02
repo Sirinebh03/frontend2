@@ -104,13 +104,17 @@ getFormsWithPermissions() {
     );
   }
 
-  getUserFormDetails(userId: string, formId: string): Observable<any> {
-  return this.http.get(`${this.apiUrl}/forms/users/${userId}/${formId}`);
+getUserFormDetails(formId: string, userId: string): Observable<any> {
+  return this.http.get(`${this.apiUrl}/forms/users/${formId}/${userId}`);
 }
+
   getFormConfig(id: number): Observable<any> {
     return this.http.get<any>(`${this.apiUrl}/forms/${id}/config`).pipe(
       catchError(this.handleError)
     );
+  }
+getuserforms(userId: string) {
+  return this.http.get<{forms: any[]}>(`${this.apiUrl}/forms/userform/${userId}`)
   }
 
   // ---------------------- Gestion des Données de Formulaire ----------------------
@@ -180,10 +184,15 @@ submitFormData(formId: any, data: any): Observable<any> {
     );
   }
 
-  getFormDataWithEntries(formId: number): Observable<any> {
-    return this.http.get<any>(`${this.apiUrl}/forms/${formId}/data`
-    );
-  }
+ getFormDataWithEntries(formId: number): Observable<any> {
+  return this.http.get<any>(`${this.apiUrl}/forms/${formId}/data`).pipe(
+    catchError(error => {
+      console.error('Error fetching form data:', error);
+      // Retourner un objet avec un tableau vide si erreur
+      return of({ entries: [], form_data: [] });
+    })
+  );
+}
 
   // ---------------------- Gestion des Fichiers ----------------------
 
@@ -282,7 +291,7 @@ getTableFieldOptions(table: string, keyColumn: string, valueColumn: string): Obs
 
 // For form-specific file URLs
 // Dans form.service.ts
-getFormSpecificFileUrl(formId: number, filenameOrPath: string): string {
+getFormSpecificFileUrl(formId: any, filenameOrPath: string): string {
   if (!filenameOrPath) return '';
   
   // Si c'est déjà une URL complète
