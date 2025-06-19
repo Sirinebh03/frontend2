@@ -246,14 +246,29 @@ submitFormData(formId: any, data: any): Observable<any> {
     );
   }
 
-  getDynamicOptions(table: string, keyColumn: string, valueColumn: string): Observable<any[]> {
-    return this.http.get<any[]>(
-      `${this.apiUrl}/forms/tables/${table}/options`,
-      { params: { key_column: keyColumn, value_column: valueColumn } }
-    ).pipe(
-      catchError(this.handleError)
-    );
+  
+// Nouvelle méthode optimisée pour les options dynamiques
+getDynamicFieldOptions(table: string, keyColumn: string, valueColumn: string, whereClause?: string): Observable<any[]> {
+  const params: any = {
+    key_column: keyColumn,
+    value_column: valueColumn
+  };
+  
+  if (whereClause) {
+    params.where = whereClause;
   }
+
+  return this.http.get<any[]>(
+    `${this.apiUrl}/forms/tables/${table}/options`,
+    { params }
+  ).pipe(
+    map(options => options.map(opt => ({
+      key: opt.key?.toString() || '',
+      value: opt.value?.toString() || opt.label?.toString() || ''
+    }))),
+    catchError(this.handleError)
+  );
+}
 
   getFieldOptions(formId: number, fieldName: string): Observable<any[]> {
     return this.http.get<any[]>(`${this.apiUrl}/forms/options/${formId}/${fieldName}`).pipe(

@@ -132,7 +132,7 @@ import { KeycloakConfig } from 'keycloak-js';
 import { CommonModule } from '@angular/common';
 
 // Demo pages
-import {DashboardDemoComponent} from './demo/view/dashboarddemo.component';
+
 import {FormLayoutDemoComponent} from './demo/view/formlayoutdemo.component';
 import {FloatLabelDemoComponent} from './demo/view/floatlabeldemo.component';
 import {InvalidStateDemoComponent} from './demo/view/invalidstatedemo.component';
@@ -183,6 +183,7 @@ import { AdminComponent } from './pages/admin.component';
 import { AuthGuard } from './auth.guard';
 import { UserFormsComponent } from './user-forms/user-forms.component';
 import { UserDetailComponent } from './user-detail/user-detail.component';
+import { CardDashboardComponent } from './pages/card-dashboard.component';
 
 FullCalendarModule.registerPlugins([
     dayGridPlugin,
@@ -331,7 +332,6 @@ function initializeKeycloak(keycloak: KeycloakService) {
         AppCrudComponent,
         AppCalendarComponent,
         AppTimelineDemoComponent,
-        DashboardDemoComponent,
         FormLayoutDemoComponent,
         FloatLabelDemoComponent,
         InvalidStateDemoComponent,
@@ -362,7 +362,8 @@ function initializeKeycloak(keycloak: KeycloakService) {
         FormPermissionsComponent,
         AdminComponent,
         UserFormsComponent,
-        UserDetailComponent
+        UserDetailComponent,
+        CardDashboardComponent
 
        
     ],

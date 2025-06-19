@@ -210,6 +210,7 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
           try {
             this.formElements = JSON.parse(form.form_data);
             this.validateFormElements();
+            this.loadDynamicOptionsForAllElements(); 
           } catch (e) {
             this.messageService.add({
               severity: 'error',
@@ -263,30 +264,67 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
     this.isFormListVisible = !this.isFormListVisible;
   }
 
-  loadFieldsForSelectedTable(table: string): void {
-    if (!table) return;
-    
-    this.isLoading = true;
-    this.subscriptions.push(
-      this.formService.getTableFields(table).subscribe({
-        next: (fields) => {
-          this.sourceTableFields = fields;
-          this.sourceColumnFields = fields;
-          this.cdr.detectChanges();
-          this.isLoading = false;
-        },
-        error: (error) => {
-          this.messageService.add({
-            severity: 'error',
-            summary: 'Erreur',
-            detail: 'Erreur lors du chargement des colonnes',
-            life: 5000
-          });
-          this.isLoading = false;
+  
+  // Charger les colonnes d'une table sélectionnée
+loadFieldsForSelectedTable(table: string): void {
+  if (!table) return;
+  
+  this.isLoading = true;
+  this.formService.getTableFields(table).subscribe({
+    next: (fields) => {
+      this.sourceTableFields = fields;
+      this.sourceColumnFields = [...fields]; // Crée une copie
+      this.isLoading = false;
+      
+      // Si l'élément a déjà des colonnes sélectionnées, recharger les options
+      if (this.selectedElement?.keyColumn && this.selectedElement?.valueColumn) {
+        this.loadDynamicOptionsForSelectedElement();
+      }
+    },
+    error: (error) => {
+      console.error('Error loading table fields:', error);
+      this.isLoading = false;
+    }
+  });
+}
+
+// Charger les options dynamiques pour l'élément sélectionné
+loadDynamicOptionsForSelectedElement(): void {
+  if (!this.selectedElement) return;
+  
+  const { sourceTable, keyColumn, valueColumn } = this.selectedElement;
+  if (!sourceTable || !keyColumn || !valueColumn) return;
+  
+  this.isLoading = true;
+  this.formService.getTableFieldOptions(sourceTable, keyColumn, valueColumn)
+    .subscribe({
+      next: (options) => {
+        if (this.selectedElement) {
+          this.selectedElement.options = options;
+          this.updateOptionsFormArray(options);
         }
-      })
-    );
-  }
+        this.isLoading = false;
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        console.error('Error loading options:', error);
+        this.isLoading = false;
+      }
+    });
+}
+
+// Mettre à jour le FormArray des options
+updateOptionsFormArray(options: any[]): void {
+  const optionsFormArray = this.selectedElementForm.get('options') as FormArray;
+  optionsFormArray.clear();
+  
+  options.forEach(option => {
+    optionsFormArray.push(this.fb.group({
+      key: [option.key],
+      value: [option.value]
+    }));
+  });
+}
 
   loadDynamicOptions(table: string, keyColumn: string, valueColumn: string, element: FormElement): void {
     if (!table || !keyColumn || !valueColumn) return;
@@ -296,9 +334,10 @@ export class FormBuilderComponent implements OnInit, OnDestroy {
       this.formService.getTableFieldOptions(table, keyColumn, valueColumn).subscribe({
         next: (options: any[]) => {
           element.options = options.map((opt: any) => ({
-            key: opt.value?.toString() || '', // Explicit conversion to string
-            value: opt.label?.toString() || '' // Explicit conversion to string
+            key: opt.value?.toString() || '', 
+            value: opt.label?.toString() || '' 
           }));
+          element.options= [...options]; 
           this.isLoading = false;
         },
         error: (error) => {
@@ -403,6 +442,16 @@ dropInForm(event: CdkDragDrop<FormElement[]>) {
   
     this.showModal = true;
     this.cdr.detectChanges();
+this.selectedElementForm.get('sourceTable')?.valueChanges.subscribe(() => {
+  this.tryLoadOptionsDynamically();
+});
+this.selectedElementForm.get('keyColumn')?.valueChanges.subscribe(() => {
+  this.tryLoadOptionsDynamically();
+});
+this.selectedElementForm.get('valueColumn')?.valueChanges.subscribe(() => {
+  this.tryLoadOptionsDynamically();
+});
+
   
     if (['select', 'multiselect', 'radio'].includes(element.type)) {
       if (element.dynamic && element.sourceTable) {
@@ -410,6 +459,37 @@ dropInForm(event: CdkDragDrop<FormElement[]>) {
       }
     }
   }
+loadDynamicOptionsForAllElements(): void {
+  this.formElements.forEach(element => {
+    if (
+      ['select', 'multiselect', 'radio'].includes(element.type) &&
+      element.dynamic &&
+      element.sourceTable &&
+      element.keyColumn &&
+      element.valueColumn
+    ) {
+      this.loadDynamicOptions(
+        element.sourceTable,
+        element.keyColumn,
+        element.valueColumn,
+        element
+      );
+    }
+  });
+}
+private tryLoadOptionsDynamically(): void {
+  if (!this.selectedElementForm || !this.selectedElement) return;
+
+  const sourceTable = this.selectedElementForm.get('sourceTable')?.value;
+  const keyColumn = this.selectedElementForm.get('keyColumn')?.value;
+  const valueColumn = this.selectedElementForm.get('valueColumn')?.value;
+  const isDynamic = this.selectedElementForm.get('dynamic')?.value;
+
+  if (sourceTable && keyColumn && valueColumn && isDynamic) {
+    this.loadDynamicOptions(sourceTable, keyColumn, valueColumn, this.selectedElement);
+  }
+}
+
 
   closeModal(): void {
     this.showModal = false;
@@ -448,20 +528,22 @@ dropInForm(event: CdkDragDrop<FormElement[]>) {
       dynamic: formValues.dynamic,
       accept: formValues.accept,
       multiple: formValues.multiple,
-      validation: formValues.validation
+      validation: formValues.validation,
+      
+    
     });
 
     if (formValues.dynamic && formValues.sourceTable && formValues.keyColumn && formValues.valueColumn) {
-      // Les options seront chargées dynamiquement
-      this.selectedElement.options = [];
-    } 
-    else if (!formValues.dynamic && ['select', 'radio', 'checkbox', 'multiselect'].includes(formValues.type)) {
-      const optionsArray = this.selectedElementForm.get('options') as FormArray;
-      this.selectedElement.options = optionsArray.controls.map(control => ({
-        key: control.value.key,
-        value: control.value.value
-      }));
-    }
+  // Charger les options dynamiques depuis la source
+  this.loadDynamicOptions(formValues.sourceTable, formValues.keyColumn, formValues.valueColumn, this.selectedElement);
+} else if (!formValues.dynamic && ['select', 'radio', 'checkbox', 'multiselect'].includes(formValues.type)) {
+  const optionsArray = this.selectedElementForm.get('options') as FormArray;
+  this.selectedElement.options = optionsArray.controls.map(control => ({
+    key: control.value.key,
+    value: control.value.value
+  }));
+}
+
     
     this.closeModal();
   }
@@ -580,6 +662,7 @@ async saveForm(): Promise<void> {
           this.resetForm();
           this.loadExistingForms();
           this.router.navigate(['/forms']);
+          this.loadDynamicOptionsForAllElements(); 
           this.isLoading = false;
         },
         error: (error) => {

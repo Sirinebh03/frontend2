@@ -9,6 +9,7 @@ import { HttpClient } from '@angular/common/http';
 import { environment } from 'src/environments/environment';
 import { FormGroupDirective } from '@angular/forms';
 import { FormControl } from '@angular/forms';
+import { ChangeDetectorRef } from '@angular/core';
 
 interface FieldOption {
   label: any;
@@ -102,6 +103,9 @@ uploadedFiles: { [key: string]: File | string } = {};
     private fb: FormBuilder,
     private messageService: MessageService,
     private router: Router
+,
+    private cdr: ChangeDetectorRef,
+    private http: HttpClient
   ) {}
 
   ngOnInit(): void {
@@ -242,29 +246,7 @@ loadData(): Promise<void> {
     });
   }
 
-  private processFormFields(fields: any[]): DynamicField[] {
-    return fields.map(field => {
-      if (!field.name && !field.label) {
-        console.warn('Field has neither name nor label:', field);
-        field.name = 'unnamed_field_' + Math.random().toString(36).substring(2);
-      } else if (!field.name) {
-        field.name = this.slugify(field.label);
-      }
-      
-      if (field.options) {
-        field.options = this.normalizeOptions(field.options);
-      }
-      
-      if (!field.validation) {
-        field.validation = {};
-        if (field.required) {
-          field.validation.required = true;
-        }
-      }
-      
-      return field;
-    });
-  }
+ 
  private normalizeOptions(options: any[]): FieldOption[] {
   return options.map(opt => {
     if (typeof opt === 'string') {
@@ -601,6 +583,45 @@ saveItem(): void {
             this.isLoading = false;
         }
     });
+}
+loadDynamicOptions(field: DynamicField): void {
+  if (!field.dynamic || !field.sourceTable || !field.keyColumn || !field.valueColumn) {
+    return;
+  }
+
+  this.isLoading = true;
+  this.formService.getTableFieldOptions(
+    field.sourceTable, 
+    field.keyColumn, 
+    field.valueColumn
+  ).subscribe({
+    next: (options) => {
+      field.options = options;
+      this.isLoading = false;
+      this.cdr.detectChanges();
+    },
+    error: (err) => {
+      console.error('Error loading dynamic options:', err);
+      this.isLoading = false;
+    }
+  });
+}
+
+processFormFields(fields: any[]): DynamicField[] {
+  return fields.map(field => {
+    const processedField: DynamicField = {
+      ...field,
+      name: field.name || this.slugify(field.label),
+      options: field.options ? this.normalizeOptions(field.options) : []
+    };
+
+    // Charger les options dynamiques si configuré
+    if (field.dynamic && field.sourceTable && field.keyColumn && field.valueColumn) {
+      this.loadDynamicOptions(processedField);
+    }
+
+    return processedField;
+  });
 }
 
   deleteItem(item: any): void {

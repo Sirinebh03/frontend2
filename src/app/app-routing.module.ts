@@ -7,7 +7,7 @@ import { AppErrorComponent } from './pages/app.error.component';
 import { AppAccessdeniedComponent } from './pages/app.accessdenied.component';
 import { AppLoginComponent } from './pages/app.login.component';
 
-import { DashboardDemoComponent } from './demo/view/dashboarddemo.component';
+import { CardDashboardComponent} from './pages/card-dashboard.component';
 
 import { FormBuilderComponent } from './pages/form-builder.component';
 import { FormsListComponent } from './pages/forms-list.component';
@@ -31,7 +31,7 @@ import { UserDetailComponent } from './user-detail/user-detail.component';
         component: AppMainComponent,
         canActivate: [AuthGuard],
         children: [
-          { path: '', component: DashboardDemoComponent },
+          { path: '', component: CardDashboardComponent },
          
           {
             path: 'uikit/menu',
